@@ -40,6 +40,7 @@ namespace linq {
 	append(const Container&, value_type)->append<constIterType<Container>>;
 	template<typename Iter, typename value_type>
 	append(Iter, Iter, value_type)->append<Iter>;
+
 	template<typename Iter>
 	class removeFirst;
 	template<typename Container, typename value_type>
@@ -82,12 +83,43 @@ namespace linq {
 	template<typename Iter>
 	distinct(Iter, Iter)->distinct<Iter>;
 
-	// group
-	// join
-	template<typename Iter>
-	class intersect;
-	template<typename Iter, typename Iter2>
+	template<typename Iter, typename GroupBy, typename AccumulateTo>
+	class group;
+	template<typename Container, typename Func1, typename Func2>
+	group(Container&, Func1, Func2)->group<iterType<Container>, std::invoke_result_t<Func1, const typename std::iterator_traits<iterType<Container>>::value_type&>,
+		std::invoke_result_t<Func2, const std::vector<typename std::iterator_traits<iterType<Container>>::value_type>&>>;
+	template<typename Container, typename Func1, typename Func2>
+	group(const Container&, Func1, Func2)->group<constIterType<Container>, std::invoke_result_t<Func1, const typename std::iterator_traits<constIterType<Container>>::value_type&>,
+		std::invoke_result_t<Func2, const std::vector<typename std::iterator_traits<constIterType<Container>>::value_type>&>>;
+	template<typename Iter, typename Func1, typename Func2>
+	group(Iter, Iter, Func1, Func2)->group<Iter, std::invoke_result_t<Func1, const typename std::iterator_traits<Iter>::value_type&>,
+		std::invoke_result_t<Func2, const std::vector<typename std::iterator_traits<Iter>::value_type>&>>;
+
+	template<typename Iter, typename Iter2, typename Key, typename CombineTo>
+	class join;
+	template<typename Container1, typename Container2, typename Func1, typename Func2, typename Func3>
+	join(Container1&, Container2&, Func1, Func2, Func3)->join<iterType<Container1>, iterType<Container2>, std::invoke_result_t<Func1, const typename std::iterator_traits<iterType<Container1>>::value_type&>,
+		std::invoke_result_t<Func3, const typename std::iterator_traits<iterType<Container1>>::value_type&, const typename std::iterator_traits<iterType<Container2>>::value_type&>>;
+	template<typename Container1, typename Container2, typename Func1, typename Func2, typename Func3>
+	join(const Container1&, const Container2&, Func1, Func2, Func3)->join<constIterType<Container1>, constIterType<Container2>, std::invoke_result_t<Func1, const typename std::iterator_traits<constIterType<Container1>>::value_type&>,
+		std::invoke_result_t<Func3, const typename std::iterator_traits<constIterType<Container1>>::value_type&, const typename std::iterator_traits<constIterType<Container2>>::value_type&>>;
+	template<typename Iter1, typename Iter2, typename Func1, typename Func2, typename Func3>
+	join(Iter1, Iter1, Iter2, Iter2, Func1, Func2, Func3)->join<Iter1, Iter2, std::invoke_result_t<Func1, const typename std::iterator_traits<Iter1>::value_type&>,
+		std::invoke_result_t<Func3, const typename std::iterator_traits<Iter1>::value_type&, const typename std::iterator_traits<Iter2>::value_type&>>;
+
+	template<typename Iter, typename Iter2, typename CombineTo>
 	class zip;
+	template<typename Container1, typename Container2, typename Func>
+	zip(Container1&, Container2&, Func)->zip<iterType<Container1>, iterType<Container2>,
+		std::invoke_result_t<Func, const typename std::iterator_traits<iterType<Container1>>::value_type&,
+		const typename std::iterator_traits<iterType<Container2>>::value_type>>;
+	template<typename Container1, typename Container2, typename Func>
+	zip(const Container1&, const Container2&, Func)->zip<constIterType<Container1>, constIterType<Container2>,
+		std::invoke_result_t<Func, const typename std::iterator_traits<constIterType<Container1>>::value_type&,
+		const typename std::iterator_traits<constIterType<Container2>>::value_type>>;
+	template<typename Iter1, typename Iter2, typename Func>
+	zip(Iter1, Iter1, Iter2, Iter2, Func)->zip<Iter1, Iter2, std::invoke_result_t<Func, const typename std::iterator_traits<Iter1>::value_type&,
+		const typename std::iterator_traits<Iter2>::value_type&>>;
 
 	template<typename Iter>
 	class prepend;
@@ -114,7 +146,7 @@ namespace linq {
 	template<typename Container, typename Func>
 	select(const Container&, Func)->select<iterType<Container>, std::invoke_result_t<Func, const typename std::iterator_traits<constIterType<Container>>::value_type&>>;
 	template<typename Iter, typename Func>
-	select(Iter, Iter, Func)->select<Iter, std::invoke_result_t<Func(const typename std::iterator_traits<Iter>::value_type&)>>;
+	select(Iter, Iter, Func)->select<Iter, std::invoke_result_t<Func, const typename std::iterator_traits<Iter>::value_type&>>;
 
 	// Can't use store because of a bug in Visual Studio, compiles fine in gcc/clang.
 	constexpr size_t iteratorStoreSize = 16;
@@ -359,14 +391,14 @@ namespace linq {
 			return false;
 		}
 
-		void forEach(std::function<void(value_type&)> func) {
-			for (value_type& value : *this) {
+		void forEach(std::function<void(typename iterator::reference)> func) {
+			for (reference value : *this) {
 				func(value);
 			}
 		}
 
-		void forEach(std::function<void(const value_type&)> func) const {
-			for (const value_type& value : *this) {
+		void forEach(std::function<void(typename const_iterator::reference)> func) const {
+			for (typename const_iterator::reference value : *this) {
 				func(value);
 			}
 		}
@@ -420,11 +452,11 @@ namespace linq {
 			return false;
 		}
 
-		typename Iter::reference first() {
+		typename iterator::reference first() {
 			return *this->begin();
 		}
 
-		const value_type& first() const {
+		typename const_iterator::reference first() const {
 			return *this->begin();
 		}
 
@@ -433,11 +465,11 @@ namespace linq {
 			return this->first();
 		}
 
-		value_type& last() {
+		typename iterator::reference last() {
 			return *(this->begin() + (this->count() - 1));
 		}
 
-		const value_type& last() const {
+		typename const_iterator::reference last() const {
 			return *(this->begin() + (this->count() - 1));
 		}
 
@@ -451,6 +483,12 @@ namespace linq {
 		}
 
 		auto where(std::function<bool(const value_type&)> prop) {
+			// Can't use the container shortcut because Visual Studio won't compile those constructors
+			return linq::where{ this->begin(), this->end(), prop };
+		}
+
+		auto where(std::function<bool(const value_type&)> prop) const {
+			// Can't use the container shortcut because Visual Studio won't compile those constructors
 			return linq::where{ this->begin(), this->end(), prop };
 		}
 
@@ -459,19 +497,36 @@ namespace linq {
 			return this->select([](const value_type& v) { return std::dynamic_pointer_cast<U>(v); }).where([](const Ptr<U>& u) { return (bool)u; });
 		}
 
-		/*
+		template<typename U, template <typename> typename Ptr = std::shared_ptr, typename Enable = std::enable_if_t<std::is_same_v<std::shared_ptr<U>, Ptr<U>>>>
+		auto ofType() const {
+			return this->select([](const value_type& v) { return std::dynamic_pointer_cast<U>(v); }).where([](const Ptr<U>& u) { return (bool)u; });
+		}
+
 		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
-		decltype(auto) ofType() {
+		decltype(this->select(std::declval<std::function<Ptr<U>(const value_type& v)>>()).where(std::declval<std::function<bool(const Ptr<U>&)>>())) ofType() {
 			return this->select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); }).where([](const Ptr<U> u) { return (bool)u; });
 		}
 
 		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
-		decltype(auto) ofType() {
+		decltype(this->select(std::declval<std::function<Ptr<U>(const value_type& v)>>()).where(std::declval<std::function<bool(const Ptr<U>&)>>())) ofType() const {
+			return this->select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); }).where([](const Ptr<U>& u) { return (bool)u; });
+		}
+
+		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
+		decltype(this->where(std::declval<std::function<bool(const value_type&)>>()).select(std::declval<std::function<Ptr<U>(const value_type&)>>())) ofType() {
 			return this->where([](const value_type& v) { return (bool)dynamic_cast<const U*>(&v); }).select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); });
 		}
-		*/
+
+		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
+		decltype(this->where(std::declval<std::function<bool(const value_type&)>>()).select(std::declval<std::function<Ptr<U>(const value_type&)>>())) ofType() const {
+			return this->where([](const value_type& v) { return (bool)dynamic_cast<const U*>(&v); }).select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); });
+		}
 
 		auto append(value_type appended) {
+			return linq::append(*this, appended);
+		}
+
+		auto append(value_type appended) const {
 			return linq::append(*this, appended);
 		}
 
@@ -479,17 +534,47 @@ namespace linq {
 			return linq::prepend{ *this, prepended };
 		}
 
+		auto prepend(value_type prepended) const {
+			return linq::prepend{ *this, prepended };
+		}
+
 		auto reverse() {
+			return linq::reverse{ *this };
+		}
+
+		auto reverse() const {
 			return linq::reverse{ *this };
 		}
 
 		template<typename Func>
 		auto select(Func func) {
-			return linq::select<iterator, std::invoke_result_t<Func, const value_type&>>(*this, func);
+			return linq::select(*this, func);
 		}
 
-		// set_union (concat then distinct)
-		// selectMany (select then flatten)
+		template<typename Func>
+		auto select(Func func) const {
+			return linq::select(*this, func);
+		}
+
+		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
+		auto setUnion(Container& other) {
+			return this->concat(other).distinct();
+		}
+
+		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
+		auto setUnion(Container& other) const {
+			return this->concat(other).distinct();
+		}
+
+		template<typename Func>
+		auto selectMany(Func selector) {
+			return this->select(selector).flatten();
+		}
+
+		template<typename Func>
+		auto selectMany(Func selector) const {
+			return this->select(selector).flatten();
+		}
 
 		auto removeFirst(value_type toRemove) {
 			return linq::removeFirst(*this, toRemove);
@@ -501,9 +586,14 @@ namespace linq {
 			return linq::where([&linqed](const value_type& val) { return !linqed.contains(val); });
 		}
 
-		auto removeAll(Iter begin, Iter end) {
+		auto removeAll(iterator begin, iterator end) {
 			auto linqed = linq::id(begin, end);
-			return linq::where([&begin, &end](const value_type& val) {return !linqed.contains(val); });
+			return linq::where([linqed](const value_type& val) { return !linqed.contains(val); });
+		}
+
+		auto removeAll(const_iterator begin, const_iterator end) const {
+			auto linqed = linq::id(begin, end);
+			return linq::where([linqed](const value_type& val) { return !linqed.contains(val); });
 		}
 
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
@@ -512,7 +602,7 @@ namespace linq {
 		}
 
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
-		auto concat(const Container& container) {
+		auto concat(const Container& container) const {
 			return linq::concat(*this, container);
 		}
 
@@ -520,7 +610,15 @@ namespace linq {
 			return linq::concat(this->begin(), this->end(), iter1, iter2);
 		}
 
+		auto concat(const_iterator iter1, const_iterator iter2) const {
+			return linq::concat(this->begin(), this->end(), iter1, iter2);
+		}
+
 		auto orderBy() {
+			return linq::orderBy(*this);
+		}
+
+		auto orderBy() const {
 			return linq::orderBy(*this);
 		}
 
@@ -528,9 +626,20 @@ namespace linq {
 			return linq::orderBy(*this, comparison);
 		}
 
+		auto orderBy(std::function<bool(const value_type&, const value_type&)> comparison) const {
+			return linq::orderBy(*this, comparison);
+		}
+
 		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
 		auto take(size_t n) {
 			iterator copy = this->begin();
+			for (size_t i = 0; i < n; i++) ++copy;
+			return linq::id(this->begin(), copy);
+		}
+
+		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
+		auto take(size_t n) const {
+			const_iterator copy = this->begin();
 			for (size_t i = 0; i < n; i++) ++copy;
 			return linq::id(this->begin(), copy);
 		}
@@ -543,8 +652,22 @@ namespace linq {
 		}
 
 		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
+		auto skip(size_t n) const {
+			const_iterator copy = this->begin();
+			for (size_t i = 0; i < n; i++) ++copy;
+			return linq::id(copy, this->end());
+		}
+
+		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
 		auto takeWhile(std::function<bool(const value_type&)> prop) {
 			iterator copy = this->begin();
+			while (prop(*copy)) { ++copy; }
+			return linq::id(this->begin(), copy);
+		}
+
+		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
+		auto takeWhile(std::function<bool(const value_type&)> prop) const {
+			const_iterator copy = this->begin();
 			while (prop(*copy)) { ++copy; }
 			return linq::id(this->begin(), copy);
 		}
@@ -557,23 +680,116 @@ namespace linq {
 		}
 
 		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
+		auto skipWhile(std::function<bool(const value_type&)> prop) const {
+			const_iterator copy = this->begin();
+			while (prop(*copy)) { ++copy; }
+			return linq::id(copy, this->end());
+		}
+
+		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
 		template<typename U = value_type, typename Enable = decltype(concat(std::declval(U), std::declval(U)))>
 		auto flatten() {
 			if (this->count() >= 2) {
 				value_type first = this->first();
 				value_type second = this->at(1);
 				auto result = linq::concat(first, second);
-				linq::id(first).skip(2).forEach([&result](const value_type& x) -> void { result.concat(id(x)); });
+				linq::id(first).skip(2).forEach([&result](const value_type& x) -> void { result.concat(linq::id(x)); });
 				return result;
 			}
 			else if (this->count() == 1) {
-				return id(this->first());
+				return linq::id(this->first());
 			}
 			else {
-				return id((value_type*)nullptr, (value_type*)nullptr);
+				return linq::id((value_type*)nullptr, (value_type*)nullptr);
 			}
 		}
+
+		// CodeReview: This potentially does computation at call site, evaluating the backing container, might need to be adjusted
+		template<typename U = value_type, typename Enable = decltype(concat(std::declval(U), std::declval(U)))>
+		auto flatten() const {
+			if (this->count() >= 2) {
+				value_type first = this->first();
+				value_type second = this->at(1);
+				auto result = linq::concat(first, second);
+				linq::id(first).skip(2).forEach([&result](const value_type& x) -> void { result.concat(linq::id(x)); });
+				return result;
+			}
+			else if (this->count() == 1) {
+				return linq::id(this->first());
+			}
+			else {
+				return linq::id((value_type*)nullptr, (value_type*)nullptr);
+			}
+		}
+
+		template<typename GroupBy, typename AccumulateTo>
+		auto group(std::function<GroupBy(const value_type&)> keyFunc, std::function<AccumulateTo(const value_type&)> accumulateFunc) {
+			return linq::group(*this, keyFunc, accumulateFunc);
+		}
+
+		template<typename GroupBy, typename AccumulateTo>
+		auto group(std::function<GroupBy(const value_type&)> keyFunc, std::function<AccumulateTo(const value_type&)> accumulateFunc) const {
+			return linq::group(*this, keyFunc, accumulateFunc);
+		}
+
+		template<typename Container, typename Key, typename CombineTo>
+		auto join(Container& container, std::function<Key(const value_type&)> keyFunc1,
+			std::function<Key(const typename std::iterator_traits<iterType<Container>>::value_type&)> keyFunc2,
+			std::function<CombineTo(const value_type&, const typename std::iterator_traits<iterType<Container>>::value_type&)> combineFunc) {
+			return linq::join(*this, container, keyFunc1, keyFunc2, combineFunc);
+		}
+
+		template<typename Container, typename Key, typename CombineTo>
+		auto join(const Container& container, std::function<Key(const value_type&)> keyFunc1,
+			std::function<Key(const typename std::iterator_traits<constIterType<Container>>::value_type&)> keyFunc2,
+			std::function<CombineTo(const value_type&, const typename std::iterator_traits<constIterType<Container>>::value_type&)> combineFunc) const {
+			return linq::join(*this, container, keyFunc1, keyFunc2, combineFunc);
+		}
+
+		template<typename Iter2, typename Key, typename CombineTo>
+		auto join(Iter2 beginning, Iter2 ending, std::function<Key(const value_type&)> keyFunc1,
+			std::function<Key(const typename std::iterator_traits<Iter2>::value_type&)> keyFunc2,
+			std::function<CombineTo(const value_type&, const typename std::iterator_traits<Iter2>::value_type&)> combineFunc) {
+			return linq::join(this->begin(), this->end(), beginning, ending, keyFunc1, keyFunc2, combineFunc);
+		}
+
+		template<typename Iter2, typename Key, typename CombineTo>
+		auto join(Iter2 beginning, Iter2 ending, std::function<Key(const value_type&)> keyFunc1,
+			std::function<Key(const typename std::iterator_traits<Iter2>::value_type&)> keyFunc2,
+			std::function<CombineTo(const value_type&, const typename std::iterator_traits<Iter2>::value_type&)> combineFunc) const {
+			return linq::join(this->begin(), this->end(), beginning, ending, keyFunc1, keyFunc2, combineFunc);
+		}
+
+		template<typename Container, typename Func>
+		auto zip(Container& container, Func combineFunc) {
+			return zip(*this, container, combineFunc);
+		}
+
+		template<typename Container, typename Func>
+		auto zip(const Container& container, Func combineFunc) const {
+			return zip(*this, container, combineFunc);
+		}
+
+		template<typename Iter2, typename Func>
+		auto zip(Iter2 beginning, Iter2 ending, Func combineFunc) {
+			return zip(this->begin(), this->end(), beginning, ending, combineFunc);
+		}
 	};
+
+	template<typename Container>
+	auto from(Container& container) {
+		return id(container);
+	}
+
+	template<typename Container>
+	auto from(const Container& container) {
+		return id(container);
+	}
+
+	template<typename Iter>
+	auto from(Iter begin, Iter end) {
+		return id(begin, end);
+	}
 
 	template<typename Iter, bool cons = is_const_iterator<Iter>::value,
 		typename Category = typename std::iterator_traits<Iter>::iterator_category,
@@ -1235,6 +1451,322 @@ namespace linq {
 		distinct(Iter beginning, Iter ending)
 			: abstract_linq<distinct_iterator<Iter>, distinct_iterator<Iter>, Iter>(beginning, ending)
 		{}
+	};
+
+	template<typename Iter, typename GroupBy, typename AccumulateTo>
+	class group_iterator : public base_iterator<Iter, true, std::input_iterator_tag, AccumulateTo, size_t, const AccumulateTo*, AccumulateTo> {
+	public:
+		using original_value_type = typename std::iterator_traits<Iter>::value_type;
+
+		AccumulateTo operator*() {
+			if (!this->initialized) this->initialize();
+			return this->results[this->currentIndex];
+		}
+
+		AccumulateTo operator*() const {
+			if (!this->initialized) this->initialize();
+			return this->results[this->currentIndex];
+		}
+
+		group_iterator& operator++() {
+			if (!this->initialized) this->initialize();
+			this->currentIndex++;
+			return *this;
+		}
+
+		group_iterator& operator--() {
+			if (!this->initialized) this->initialize();
+			this->currentIndex--;
+			return *this;
+		}
+
+		bool operator==(const base_iterator<Iter, true, std::input_iterator_tag, AccumulateTo, size_t, const AccumulateTo*, AccumulateTo>& other) {
+			// CodeReview: Implement
+			// Cast to group_iterator
+			// Make sure both are initialized
+			// Compare index
+			// if index not equal check if one has index == results.size() and other has index = 0 and empty results
+		}
+
+		group_iterator(Iter begin, Iter end, std::function<GroupBy(const original_value_type&)> keyFunc, std::function<AccumulateTo(const std::vector<original_value_type>&)> accumulateFunc)
+			: base_iterator<Iter, true, std::input_iterator_tag, AccumulateTo, size_t, const AccumulateTo*, AccumulateTo>(begin), ending(end), keyFunc(keyFunc), accumulateFunc(accumulateFunc)
+		{}
+
+	private:
+		mutable std::vector<AccumulateTo> results;
+		mutable bool initialized{ false };
+		const Iter ending;
+		const std::function<GroupBy(const original_value_type&)> keyFunc;
+		const std::function<AccumulateTo(const std::vector<original_value_type>&)> accumulateFunc;
+		size_t currentIndex{ 0 };
+
+		void initialize() const {
+			std::map<GroupBy, std::vector<original_value_type>> groups;
+			std::vector<GroupBy> groupOrder;
+			id(this->current, this->ending).forEach([&groups, &groupOrder](const original_value_type& value) -> void {
+				GroupBy groupBy = this->func(value);
+				auto grouping = groups.find(groupBy);
+				if (grouping != groups.end()) {
+					groupOrder.push_back(groupBy);
+					groups[groupBy].push_back(value);
+				}
+				else grouping->second.push_back(value);
+			});
+			id(this->groupOrder).forEach([](const GroupBy& value) -> void {
+				std::vector<original_value_type> grouped = groups[value];
+				results.push_back(accumulateFunc(grouped));
+			});
+			initialized = true;
+		}
+	};
+
+	template<typename Iter, typename GroupBy, typename AccumulateTo>
+	class group : public abstract_linq<group_iterator<Iter, GroupBy, AccumulateTo>, group_iterator<Iter, GroupBy, AccumulateTo>, Iter, Iter, std::function<GroupBy(const typename std::iterator_traits<Iter>::value_type&)>, std::function<AccumulateTo(const std::vector<typename std::iterator_traits<Iter>::value_type>&)>> {
+	public:
+		using value_type = typename std::iterator_traits<Iter>::value_type;
+
+		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<iterType<Container>, Iter>>>
+		group(Container& backing, std::function<GroupBy(const value_type&)> keyFunc, std::function<AccumulateTo(const std::vector<value_type>&)> accumulateFunc)
+			: abstract_linq<group_iterator<Iter, GroupBy, AccumulateTo>, group_iterator<Iter, GroupBy, AccumulateTo>, Iter, Iter, std::function<GroupBy(const value_type&)>, std::function<AccumulateTo(const value_type&)>>(backing.begin(), backing.end(), backing.end(), keyFunc, accumulateFunc)
+		{}
+
+		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<constIterType<Container>, Iter>>>
+		group(const Container& backing, std::function<GroupBy(const value_type&)> keyFunc, std::function<AccumulateTo(const std::vector<value_type>&)> accumulateFunc)
+			: abstract_linq<group_iterator<Iter, GroupBy, AccumulateTo>, group_iterator<Iter, GroupBy, AccumulateTo>, Iter, Iter, std::function<GroupBy(const value_type&)>, std::function<AccumulateTo(const value_type&)>>(backing.cbegin(), backing.cend(), backing.cend(), keyFunc, accumulateFunc)
+		{}
+
+		group(Iter beginning, Iter ending, std::function<GroupBy(const value_type&)> keyFunc, std::function<AccumulateTo(const std::vector<value_type>&)> accumulateFunc)
+			: abstract_linq<group_iterator<Iter, GroupBy, AccumulateTo>, group_iterator<Iter, GroupBy, AccumulateTo>, Iter, Iter, std::function<GroupBy(const value_type&)>, std::function<AccumulateTo(const value_type&)>>(beginning, ending, ending, keyFunc, accumulateFunc)
+		{}
+	};
+
+	template<typename Iter1, typename Iter2, typename Key, typename CombineTo>
+	class join_iterator : public base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, const CombineTo*, CombineTo> {
+	public:
+		using original_value_type1 = typename std::iterator_traits<Iter1>::value_type;
+		using original_value_type2 = typename std::iterator_traits<Iter2>::value_type;
+
+		CombineTo operator*() {
+			if (!this->initialized) this->initialize();
+			return combineFunc(*this->current, this->twoValues.at(keyFunc1(*this->current))[currentIndex]);
+		}
+
+		CombineTo operator*() const {
+			if (!this->initialized) this->initialize();
+			return combineFunc(*this->current, this->twoValues.at(keyFunc1(*this->current))[currentIndex]);
+		}
+
+		join_iterator& operator++() override {
+			if (!this->initialized) this->initialize();
+			this->currentIndex++;
+			if (this->currentIndex >= tryAtMap(this->twoValues, keyFunc1(*this->current), {}).size()) {
+				++this->current;
+				this->findNextValidIteratorValue();
+				this->currentIndex = 0;
+			}
+			return *this;
+		}
+
+		join_iterator& operator--() override {
+			// CodeReview: Implement.
+			// if currentIndex > 0 decrease and return
+			// else count back this->current till begin(error condition) or has values
+			// then set index to size - 1 of values
+		}
+
+		bool operator==(const base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, const CombineTo*, CombineTo>& other) {
+			// CodeReview: Implement
+			// Cast to join_iterator
+			// Compare index and current
+			// if false check if index/current point to end and the other is empty
+		}
+
+		join_iterator(Iter1 current, Iter1 ending1, Iter2 beginning2, Iter2 ending2, std::function<Key(const original_value_type1&)> keyFunc1,
+			std::function<Key(const original_value_type2&)> keyFunc2,
+			std::function<CombineTo(const original_value_type1&, const original_value_type2&)> combineFunc)
+			: base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, const CombineTo*, CombineTo>(current), ending1(ending1), beginning2(beginning2), ending2(ending2),
+			keyFunc1(keyFunc1), keyFunc2(keyFunc2), combineFunc(combineFunc)
+		{}
+
+	private:
+		mutable std::map<Key, std::vector<original_value_type2>> twoValues;
+		mutable bool initialized{ false };
+		const std::function<Key(const original_value_type1&)> keyFunc1;
+		const std::function<Key(const original_value_type2&)> keyFunc2;
+		const std::function<CombineTo(const original_value_type1&, const original_value_type2&)> combineFunc;
+		size_t currentIndex{ 0 };
+		const Iter1 ending1;
+		const Iter2 beginning2;
+		const Iter2 ending2;
+
+		void findNextValidIteratorValue() {
+			while (this->twoValues.find(keyFunc1(*this->current)) == this->twoValues.end() && this->current != this->ending1) { ++this->current; }
+		}
+
+		void initialize() const {
+			from(beginning2, ending2).forEach([](const original_value_type2& value) -> void {
+				this->twoValues[this->keyFunc(value)].push_back(value);
+			});
+			this->findNextValidIteratorValue();
+			initialized = true;
+		}
+	};
+
+	template<typename Iter1, typename Iter2, typename Key, typename CombineTo>
+	class join : public abstract_linq<join_iterator<Iter1, Iter2, Key, CombineTo>, join_iterator<Iter1, Iter2, Key, CombineTo>, Iter1, Iter1, Iter2,
+		Iter2, std::function<Key(const typename std::iterator_traits<Iter1>::value_type&)>, std::function<Key(const typename std::iterator_traits<Iter2>::value_type&)>,
+		std::function<CombineTo(const typename std::iterator_traits<Iter1>::value_type&, const typename std::iterator_traits<Iter2>::value_type&)>> {
+	public:
+		using value_type1 = typename std::iterator_traits<Iter1>::value_type;
+		using value_type2 = typename std::iterator_traits<Iter2>::value_type;
+
+		template<typename Container1, typename Container2, typename Enable1 = std::enable_if_t<std::is_same_v<iterType<Container1>, Iter1>>,
+			typename Enable2 = std::enable_if_t<std::is_same_v<iterType<Container2>, Iter2>> >
+			join(Container1& backing1, Container2& backing2, std::function<Key(const value_type1&)> keyFunc1,
+				std::function<Key(const value_type2&)> keyFunc2,
+				std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: abstract_linq<join_iterator<Iter1, Iter2, Key, CombineTo>, join_iterator<Iter1, Iter2, Key, CombineTo>, Iter1, Iter1, Iter2, Iter2,
+			std::function<Key(const value_type1&)>, std::function<Key(const value_type2&)>,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(backing1.begin(), backing1.end(), backing1.end(),
+				backing2.begin(), backing2.end(), keyFunc1, keyFunc2, combineFunc)
+		{}
+
+		template<typename Container1, typename Container2, typename Enable1 = std::enable_if_t<std::is_same_v<constIterType<Container>, Iter>>,
+			typename Enable2 = std::enable_if_t<std::is_same_v<constIterType<Container2>, Iter2>>>
+			join(const Container1& backing1, const Container2& backing2, std::function<Key(const value_type1&)> keyFunc1,
+				std::function<Key(const value_type2&)> keyFunc2,
+				std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: abstract_linq<join_iterator<Iter1, Iter2, Key, CombineTo>, join_iterator<Iter1, Iter2, Key, CombineTo>, Iter1, Iter1, Iter2, Iter2,
+			std::function<Key(const value_type1&)>, std::function<Key(const value_type2&)>,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(backing1.cbegin(), backing1.cend(), backing1.cend(),
+				backing2.cbegin(), backing2.cend(), keyFunc1, keyFunc2, combineFunc)
+		{}
+
+		join(Iter1 beginning1, Iter1 ending1, Iter2 beginning2, Iter2 ending2, std::function<Key(const value_type1&)> keyFunc1,
+			std::function<Key(const value_type2&)> keyFunc2,
+			std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: abstract_linq<join_iterator<Iter1, Iter2, Key, CombineTo>, join_iterator<Iter1, Iter2, Key, CombineTo>, Iter1, Iter1, Iter2, Iter2,
+			std::function<Key(const value_type1&)>, std::function<Key(const value_type2&)>,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(beginning1, ending1, ending1,
+				beginning2, ending2, keyFunc1, keyFunc2, combineFunc)
+		{}
+	};
+
+	template<typename Iter1, typename Iter2, typename CombineTo>
+	class zip_iterator : public base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, CombineTo*, CombineTo> {
+	public:
+		using value_type1 = typename std::iterator_traits<Iter1>::value_type;
+		using value_type2 = typename std::iterator_traits<Iter2>::value_type;
+
+		CombineTo operator*() {
+			return combineFunc(*this->current, *this->current2);
+		}
+
+		CombineTo operator*() const {
+			return combineFunc(*this->current, *this->current2);
+		}
+
+		zip_iterator& operator++() {
+			++this->current;
+			++this->current2;
+			return *this;
+		}
+
+		zip_iterator& operator--() {
+			--this->current;
+			--this->current2;
+			return *this;
+		}
+
+		bool operator==(const base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, CombineTo*, CombineTo>& other) {
+			zip_iterator* zipOther = dynamic_cast<zip_iterator*>(&other);
+			return !zipOther && this->current == zipOther->current && this->current2 == zipOther->current2;
+		}
+
+		template<typename U = CombineTo, typename Enable = decltype(U{ std::declval<const value_type1&>(), std::declval<const value_type2&>() }) >
+		zip_iterator(Iter1 current, Iter2 current2)
+			: base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, CombineTo*, CombineTo>(current), current2(current2),
+			combineFunc([](const value_type1& v1, const value_type2& v2) { return CombineTo{ v1, v2 }; })
+		{}
+
+		zip_iterator(Iter1 current, Iter2 current2, std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: base_iterator<Iter1, true, std::input_iterator_tag, CombineTo, size_t, CombineTo*, CombineTo>(current), current2(current2),
+			combineFunc(combineFunc)
+		{}
+
+	private:
+		Iter2 current2;
+		std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc;
+	};
+
+	template<typename Iter1, typename Iter2, typename CombineTo>
+	class zip : public abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+		std::function<CombineTo(const typename std::iterator_traits<Iter1>::value_type&, const typename std::iterator_traits<Iter2>::value_type&)>> {
+	public:
+		using value_type1 = typename std::iterator_traits<Iter1>::value_type;
+		using value_type2 = typename std::iterator_traits<Iter2>::value_type;
+
+		zip_iterator<Iter1, Iter2, CombineTo> end() override {
+			return zip_iterator<Iter1, Iter2, CombineTo>(this->ending, this->ending2, std::get<1>(this->args));
+		}
+
+		zip_iterator<Iter1, Iter2, CombineTo> end() const override {
+			return zip_iterator<Iter1, Iter2, CombineTo>(this->ending, this->ending2, std::get<1>(this->args));
+		}
+
+		template<typename Container1, typename Container2, typename U = CombineTo, typename Enable = std::enable_if_t<std::conjunction_v<
+			std::is_same<iterType<Container1>, Iter1>,
+			std::is_same<iterType<Container2>, Iter2>>>,
+			typename Enable2 = decltype(U{ std::declval<const value_type1&>(), std::declval<const value_type2&>() }) >
+			zip(Container1& container1, Container2& container2)
+			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(container1.begin(),
+				container1.end(), container2.begin(), [](const value_type1& v1, const value_type2& v2) { return CombineTo{ v1, v2 }; }), ending2(container2.end())
+		{}
+
+		template<typename Container1, typename Container2, typename U = CombineTo, typename Enable = std::enable_if_t<std::conjunction_v<
+			std::is_same<constIterType<Container1>, Iter1>,
+			std::is_same<constIterType<Container2>, Iter2>>>,
+			typename Enable2 = decltype(U{ std::declval<const value_type1&>(), std::declval<const value_type2&>() }) >
+			zip(const Container1& container1, const Container2& container2)
+			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(container1.cbegin(),
+				container1.cend(), container2.cbegin(), [](const value_type1& v1, const value_type2& v2) { return CombineTo{ v1, v2 }; }), ending2(container2.cend())
+		{}
+
+		template<typename U = CombineTo, typename Enable = decltype(U{ std::declval<const value_type1&>(), std::declval<const value_type2&>() }) >
+		zip(Iter1 beginning1, Iter1 ending1, Iter2 beginning2, Iter2 ending2)
+			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(beginning1,
+				ending1, beginning2, [](const value_type1& v1, const value_type2& v2) { return CombineTo{ v1, v2 }; }), ending2(ending2)
+		{}
+
+		template<typename Container1, typename Container2, typename Enable = std::enable_if_t<std::conjunction_v<
+			std::is_same<iterType<Container1>, Iter1>,
+			std::is_same<iterType<Container2>, Iter2>>>>
+			zip(Container1& container1, Container2& container2, std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(container1.begin(),
+				container1.end(), container2.begin(), [](const value_type1& v1, const value_type2& v2) { return CombineTo{ v1, v2 }; }), ending2(container2.end())
+		{}
+
+		template<typename Container1, typename Container2, typename Enable = std::enable_if_t<std::conjunction_v<
+			std::is_same<constIterType<Container1>, Iter1>,
+			std::is_same<constIterType<Container2>, Iter2>>>>
+			zip(const Container1& container1, const Container2& container2, std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(container1.cbegin(),
+				container1.cend(), container2.cbegin(), combineFunc), ending2(container2.cend())
+		{}
+
+		zip(Iter1 beginning1, Iter1 ending1, Iter2 beginning2, Iter2 ending2, std::function<CombineTo(const value_type1&, const value_type2&)> combineFunc)
+			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
+			std::function<CombineTo(const value_type1&, const value_type2&)>>(beginning1,
+				ending1, beginning2, combineFunc), ending2(ending2)
+		{}
+
+	private:
+		Iter2 ending2;
 	};
 }
 #endif
