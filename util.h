@@ -1,6 +1,9 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
+#include <map>
+#include <memory>
+#include <variant>
 #include <type_traits>
 
 // Test whether two ordered ranges intersect at all

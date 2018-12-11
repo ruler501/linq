@@ -3,16 +3,30 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
 #include "util.h"
 
 namespace linq {
+	template<typename Category, typename Value, typename Difference, typename Pointer, typename Reference>
+	class iterator_wrapper;
+
+	template<typename Iter>
+	iterator_wrapper(Iter&&)->iterator_wrapper<typename std::iterator_traits<Iter>::iterator_category,
+		typename std::iterator_traits<Iter>::value_type,
+		typename std::iterator_traits<Iter>::difference_type,
+		typename std::iterator_traits<Iter>::pointer,
+		typename std::iterator_traits<Iter>::reference>;
+
+	template<typename Iter>
+	using wrapperEquivalent = typename DeductionGuideEvaluate<iterator_wrapper, Iter>::type;
+
 	template<typename Container>
-	using iterType = decltype(std::declval<Container>().begin());
+	using iterType = wrapperEquivalent<decltype(std::declval<Container>().begin())>;
 	template<typename Container>
-	using constIterType = decltype(std::declval<Container>().cbegin());
+	using constIterType = wrapperEquivalent<decltype(std::declval<Container>().cbegin())>;
 
 	template<typename Iter>
 	class id;
@@ -24,13 +38,13 @@ namespace linq {
 	id(Iter, Iter)->id<Iter>;
 
 	template<typename Iter>
-	class where;
+	class filter;
 	template<typename Container, typename Func>
-	where(Container&, Func)->where<iterType<Container>>;
+	filter(Container&, Func)->filter<iterType<Container>>;
 	template<typename Container, typename Func>
-	where(const Container&, Func)->where<constIterType<Container>>;
+	filter(const Container&, Func)->filter<constIterType<Container>>;
 	template<typename Iter, typename Func>
-	where(Iter, Iter, Func)->where<Iter>;
+	filter(Iter, Iter, Func)->filter<Iter>;
 
 	template<typename Iter>
 	class append;
@@ -171,6 +185,7 @@ namespace linq {
 			virtual base& operator--() = 0;
 
 			virtual base* copy() const noexcept = 0;
+			virtual void free() noexcept = 0;
 
 			/*
 			virtual base* copy(store<iteratorStoreSize>& store) const noexcept = 0;
@@ -203,7 +218,7 @@ namespace linq {
 
 			bool operator==(const base& other) const {
 				const data<T>* dataVersion = dynamic_cast<const data<T>*>(&other);
-				return dataVersion && *this == *dataVersion;
+				return dataVersion && val == dataVersion->val;
 			}
 
 			data<T>* copy() const noexcept override {
@@ -224,6 +239,8 @@ namespace linq {
 			}
 			*/
 
+			void free() noexcept override { delete this; }
+
 			template<typename U>
 			data(U&& val) noexcept
 				: val(std::forward<U>(val))
@@ -240,21 +257,21 @@ namespace linq {
 			: val(other.val->copy())
 		{}
 
-		iterator_wrapper(iterator_wrapper&& other)
+		iterator_wrapper(iterator_wrapper&& other) noexcept
 			: val(other.val)
 		{
 			other.val = nullptr;
 		}
 
 		iterator_wrapper& operator=(const iterator_wrapper& other) {
-			if (this->val) delete this->val;
+			if (this->val) this->val->free();
 			if (other.val) this->val = other.val->copy();
 			else this->val = nullptr;
 			return *this;
 		}
 
 		iterator_wrapper& operator=(iterator_wrapper&& other) {
-			if (this->val) delete this->val;
+			if (this->val) this->val->free();
 			this->val = other.val;
 			other.val = nullptr;
 			return *this;
@@ -269,12 +286,12 @@ namespace linq {
 		}
 
 		iterator_wrapper& operator++() {
-			++(this->val);
+			++(*this->val);
 			return *this;
 		}
 
 		iterator_wrapper& operator--() {
-			--(this->val);
+			--(*this->val);
 			return *this;
 		}
 
@@ -288,16 +305,9 @@ namespace linq {
 		}
 
 		~iterator_wrapper() {
-			if (this->val) delete this->val;
+			if (this->val) this->val->free();
 		}
 	};
-
-	template<typename Iter>
-	iterator_wrapper(Iter&&)->iterator_wrapper<typename std::iterator_traits<Iter>::iterator_category,
-		typename std::iterator_traits<Iter>::value_type,
-		typename std::iterator_traits<Iter>::difference_type,
-		typename std::iterator_traits<Iter>::pointer,
-		typename std::iterator_traits<Iter>::reference>;
 
 	template<typename Iter, typename ConstIter, typename BackingIter, typename... Args>
 	class abstract_linq {
@@ -314,8 +324,8 @@ namespace linq {
 		using const_pointer = typename std::iterator_traits<ConstIter>::pointer;
 		using const_reference = typename std::iterator_traits<ConstIter>::reference;
 	public:
-		using iterator = iterator_wrapper<iterator_category, value_type, difference_type, pointer, reference>;
-		using const_iterator = iterator_wrapper<const_iterator_category, const_value_type, const_difference_type, const_pointer, const_reference>;
+		using iterator = wrapperEquivalent<Iter>;
+		using const_iterator = wrapperEquivalent<ConstIter>;
 		using reverse_iterator = std::reverse_iterator<iterator>;
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -478,48 +488,53 @@ namespace linq {
 			return this->last();
 		}
 
-		std::vector<value_type> toVector() const {
+		template<typename Container>
+		Container toContainer() const {
 			return { this->begin(), this->end() };
 		}
 
-		auto where(std::function<bool(const value_type&)> prop) {
-			// Can't use the container shortcut because Visual Studio won't compile those constructors
-			return linq::where{ this->begin(), this->end(), prop };
+		std::vector<value_type> toVector() const {
+			return this->toContainer<std::vector<value_type>>;
 		}
 
-		auto where(std::function<bool(const value_type&)> prop) const {
+		auto filter(std::function<bool(const value_type&)> prop) {
 			// Can't use the container shortcut because Visual Studio won't compile those constructors
-			return linq::where{ this->begin(), this->end(), prop };
+			return linq::filter{ this->begin(), this->end(), prop };
+		}
+
+		auto filter(std::function<bool(const value_type&)> prop) const {
+			// Can't use the container shortcut because Visual Studio won't compile those constructors
+			return linq::filter{ this->begin(), this->end(), prop };
 		}
 
 		template<typename U, template <typename> typename Ptr = std::shared_ptr, typename Enable = std::enable_if_t<std::is_same_v<std::shared_ptr<U>, Ptr<U>>>>
 		auto ofType() {
-			return this->select([](const value_type& v) { return std::dynamic_pointer_cast<U>(v); }).where([](const Ptr<U>& u) { return (bool)u; });
+			return this->select([](const value_type& v) { return std::dynamic_pointer_cast<U>(v); }).filter([](const Ptr<U>& u) { return (bool)u; });
 		}
 
 		template<typename U, template <typename> typename Ptr = std::shared_ptr, typename Enable = std::enable_if_t<std::is_same_v<std::shared_ptr<U>, Ptr<U>>>>
 		auto ofType() const {
-			return this->select([](const value_type& v) { return std::dynamic_pointer_cast<U>(v); }).where([](const Ptr<U>& u) { return (bool)u; });
+			return this->select([](const value_type& v) { return std::dynamic_pointer_cast<U>(v); }).filter([](const Ptr<U>& u) { return (bool)u; });
 		}
 
 		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
-		decltype(this->select(std::declval<std::function<Ptr<U>(const value_type& v)>>()).where(std::declval<std::function<bool(const Ptr<U>&)>>())) ofType() {
-			return this->select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); }).where([](const Ptr<U> u) { return (bool)u; });
+		decltype(this->select(std::declval<std::function<Ptr<U>(const value_type& v)>>()).filter(std::declval<std::function<bool(const Ptr<U>&)>>())) ofType() {
+			return this->select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); }).filter([](const Ptr<U> u) { return (bool)u; });
 		}
 
 		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
-		decltype(this->select(std::declval<std::function<Ptr<U>(const value_type& v)>>()).where(std::declval<std::function<bool(const Ptr<U>&)>>())) ofType() const {
-			return this->select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); }).where([](const Ptr<U>& u) { return (bool)u; });
+		decltype(this->select(std::declval<std::function<Ptr<U>(const value_type& v)>>()).filter(std::declval<std::function<bool(const Ptr<U>&)>>())) ofType() const {
+			return this->select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); }).filter([](const Ptr<U>& u) { return (bool)u; });
 		}
 
 		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
-		decltype(this->where(std::declval<std::function<bool(const value_type&)>>()).select(std::declval<std::function<Ptr<U>(const value_type&)>>())) ofType() {
-			return this->where([](const value_type& v) { return (bool)dynamic_cast<const U*>(&v); }).select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); });
+		decltype(this->filter(std::declval<std::function<bool(const value_type&)>>()).select(std::declval<std::function<Ptr<U>(const value_type&)>>())) ofType() {
+			return this->filter([](const value_type& v) { return (bool)dynamic_cast<const U*>(&v); }).select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); });
 		}
 
 		template<typename U, template <typename> typename Ptr, typename Enable = std::enable_if_t<is_pointer<Ptr<U>::value>>>
-		decltype(this->where(std::declval<std::function<bool(const value_type&)>>()).select(std::declval<std::function<Ptr<U>(const value_type&)>>())) ofType() const {
-			return this->where([](const value_type& v) { return (bool)dynamic_cast<const U*>(&v); }).select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); });
+		decltype(this->filter(std::declval<std::function<bool(const value_type&)>>()).select(std::declval<std::function<Ptr<U>(const value_type&)>>())) ofType() const {
+			return this->filter([](const value_type& v) { return (bool)dynamic_cast<const U*>(&v); }).select([](const value_type& v) { return dynamic_cast<Ptr<U>>(v); });
 		}
 
 		auto append(value_type appended) {
@@ -583,17 +598,17 @@ namespace linq {
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
 		auto removeAll(const Container& container) {
 			auto linqed = linq::id(container);
-			return linq::where([&linqed](const value_type& val) { return !linqed.contains(val); });
+			return linq::filter([&linqed](const value_type& val) { return !linqed.contains(val); });
 		}
 
 		auto removeAll(iterator begin, iterator end) {
 			auto linqed = linq::id(begin, end);
-			return linq::where([linqed](const value_type& val) { return !linqed.contains(val); });
+			return linq::filter([linqed](const value_type& val) { return !linqed.contains(val); });
 		}
 
 		auto removeAll(const_iterator begin, const_iterator end) const {
 			auto linqed = linq::id(begin, end);
-			return linq::where([linqed](const value_type& val) { return !linqed.contains(val); });
+			return linq::filter([linqed](const value_type& val) { return !linqed.contains(val); });
 		}
 
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
@@ -805,6 +820,10 @@ namespace linq {
 			using pointer = Pointer;
 			using reference = std::conditional_t<cons, consted_t<Reference>, Reference>;
 
+			virtual reference operator*() = 0;
+
+			virtual consted_t<reference> operator*() const = 0;
+
 			virtual base_iterator& operator++() {
 				++this->current;
 				return *this;
@@ -823,12 +842,32 @@ namespace linq {
 				return *this;
 			}
 
-			// operator++(int)
-			// operator--(int)
-			// operator+
-			// operator-(size_t)
-			// operator[]
-			// operator-(id_iterator&)
+			virtual base_iterator& operator+=(size_t n) {
+				for (size_t i = 0; i < n; i++) this->operator++();
+				return *this;
+			}
+
+			virtual base_iterator& operator-=(size_t n) {
+				for (size_t i = 0; i < n; i++) this->operator--();
+				return *this;
+			}
+
+			virtual reference operator[](size_t n) {
+				*this += n;
+				reference result = **this;
+				*this -= n;
+				return result;
+			}
+
+			// operator++(int) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator--(int) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator+(size_t) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator-(size_t) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator-(base_iterator&) Could possibly be implemented if the below were also implemented
+			// operator<(base_iterator&) Implementation specific, could supply default of current < current
+			// operator>(base_iterator&) Implementation specific, could supply default of current > current
+			// operator<=(base_iterator&) Implementation specific, could supply default of current <= current
+			// operator>=(base_iterator&) Implementation specific, could supply default of current >= current
 
 			base_iterator(Iter current)
 				: current(current)
@@ -841,22 +880,19 @@ namespace linq {
 	template<typename Iter, bool cons = is_const_iterator<Iter>::value>
 	class id_iterator : public base_iterator<Iter, cons> {
 	public:
-		using reference = typename std::iterator_traits<Iter>::reference;
+		using reference = typename base_iterator<Iter, cons>::reference;
 
-		virtual reference operator*() {
-			return *current;
+	    reference operator*() override {
+			return *this->current;
 		}
 
-		virtual consted_t<reference> operator*() const {
-			return *current;
+		consted_t<reference> operator*() const override {
+			return *this->current;
 		}
 
 		id_iterator(Iter current)
 			: base_iterator<Iter, cons>(current)
 		{}
-
-	protected:
-		Iter current;
 	};
 
 	template<typename Iter>
@@ -883,7 +919,7 @@ namespace linq {
 		filter_iterator& operator++() {
 			do {
 				++this->current;
-			} while (!filter(*this->current) && this->current != this->end);
+			} while (this->current != this->end && !filter(*this->current));
 			return *this;
 		}
 
@@ -910,24 +946,24 @@ namespace linq {
 	};
 
 	template<typename Iter>
-	class where : public abstract_linq<filter_iterator<Iter>, filter_iterator<Iter>, Iter, Iter, std::function<bool(const typename std::iterator_traits<Iter>::value_type&)>> {
+	class filter : public abstract_linq<filter_iterator<Iter>, filter_iterator<Iter>, Iter, Iter, std::function<bool(const typename std::iterator_traits<Iter>::value_type&)>> {
 	public:
 		using value_type = typename std::iterator_traits<Iter>::value_type;
 
 		// Visual Studio refuses to compile these constructors
 		/*
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<iterType<Container>, Iter>>>
-		where(Container& backing, std::function<bool(const value_type&)> filter)
+		filter(Container& backing, std::function<bool(const value_type&)> filter)
 			: abstract_linq<filter_iterator<Iter>, filter_iterator<Iter>, Iter, Iter, std::function<bool(const typename std::iterator_traits<Iter>::value_type&)>>(backing.begin(), backing.end(), backing.end(), filter)
 		{}
 
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<constIterType<Container>, Iter>>>
-		where(const Container& backing, std::function<bool(const value_type&)> filter)
+		filter(const Container& backing, std::function<bool(const value_type&)> filter)
 			: abstract_linq<filter_iterator<Iter>, filter_iterator<Iter>, Iter, Iter, std::function<bool(const typename std::iterator_traits<Iter>::value_type&)>>(backing.cbegin(), backing.cend(), backing.cend(), filter)
 		{}
 		*/
 
-		where(Iter beginning, Iter ending, std::function<bool(const value_type&)> filter)
+		filter(Iter beginning, Iter ending, std::function<bool(const value_type&)> filter)
 			: abstract_linq<filter_iterator<Iter>, filter_iterator<Iter>, Iter, Iter, std::function<bool(const typename std::iterator_traits<Iter>::value_type&)>>(beginning, ending, ending, filter)
 		{}
 
@@ -1087,11 +1123,11 @@ namespace linq {
 	template<typename Iter, typename U>
 	class select_iterator : public base_iterator<Iter, true, std::input_iterator_tag, U, typename std::iterator_traits<Iter>::difference_type, U*, U> {
 	public:
-		U operator*() {
+		consted_t<U> operator*() override {
 			return func(*this->current);
 		}
 
-		U operator*() const {
+		consted_t<U> operator*() const override {
 			return func(*this->current);
 		}
 
@@ -1501,7 +1537,7 @@ namespace linq {
 		size_t currentIndex{ 0 };
 
 		void initialize() const {
-			std::map<GroupBy, std::vector<original_value_type>> groups;
+			std::filter<GroupBy, std::vector<original_value_type>> groups;
 			std::vector<GroupBy> groupOrder;
 			id(this->current, this->ending).forEach([&groups, &groupOrder](const original_value_type& value) -> void {
 				GroupBy groupBy = this->func(value);
@@ -1559,7 +1595,7 @@ namespace linq {
 		join_iterator& operator++() override {
 			if (!this->initialized) this->initialize();
 			this->currentIndex++;
-			if (this->currentIndex >= tryAtMap(this->twoValues, keyFunc1(*this->current), {}).size()) {
+			if (this->currentIndex >= tryAtfilter(this->twoValues, keyFunc1(*this->current), {}).size()) {
 				++this->current;
 				this->findNextValidIteratorValue();
 				this->currentIndex = 0;
