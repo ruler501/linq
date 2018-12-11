@@ -5,6 +5,11 @@ cmake_minimum_required (VERSION 3.10)
 
 include(GoogleTest)
 
+project (LinqTest)
+
+set(CMAKE_MODULE_PATH /Users/devon/TProj/linq)
+include(CodeCoverage)
+
 # Download and unpack googletest at configure time
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -30,21 +35,22 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
                  ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
                  EXCLUDE_FROM_ALL)
 
-# The gtest/gtest_main targets carry header search path
-# dependencies automatically when using CMake 2.8.11 or
-# later. Otherwise we have to add them here ourselves.
-  include_directories("${gtest_SOURCE_DIR}/include")
-
 # Setup the test and configure it to use GoogleTest
-project (LinqTest)
+# Need to include the header files to make visual studio happy
+add_executable (LinqTest "tests/linq.cpp" "util.h" "linq.h")
 
-add_executable (LinqTest "linqTest.cpp" "util.h" "linq.h")
-
-target_link_libraries(LinqTest gtest_main)
+target_link_libraries (LinqTest gtest_main)
 
 set_property (TARGET LinqTest 
 			  PROPERTY CXX_STANDARD
 			  17)
+
+if(MSVC)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+else(MSVC)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic ${CMAKE_CXX_FLAGS_COVERAGE}")
+    SETUP_TARGET_FOR_COVERAGE(LinqCoverage LinqTest coverage)
+endif(MSVC)
 
 enable_testing ()
 

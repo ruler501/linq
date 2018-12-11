@@ -220,6 +220,15 @@ struct RefMap {
 template<typename T, template <typename...> typename A>
 using ParentOfForm = std::remove_const_t<std::remove_reference_t<std::invoke_result_t<RefMap<A>, T>>>;
 
+template<typename T, template<typename...> typename A, typename Enable>
+struct HasParentOfForm : public std::false_type {};
+
+template<typename T, template<typename...> typename A>
+struct HasParentOfForm<T, A, std::conditional<false, ParentOfForm<T, A>, void>> : public std::true_type {};
+
+template<typename T, template<typename...> typename A>
+constexpr bool HasParentOfForm_v = HasParentOfForm<T, A, void>::value;
+
 template<int N, typename... Ts> using NthTypeOf =
 typename std::tuple_element<N, std::tuple<Ts...>>::type;
 
@@ -369,6 +378,15 @@ struct intersect_packs_impl<void, Pack<>, Rest...> {
 template<typename T, typename... Args>
 using intersect_packs_t = intersect_packs_impl<void, T, Args...>;
 
+template<typename Packed>
+struct empty_pack : std::false_type {};
+
+template<template <typename...> typename Pack>
+struct empty_pack<Pack<>> : std::true_type {};
+
+template<typename Packed, typename... Rest>
+using intersects = empty_pack<intersect_packs_t<Packed, Rest...>>;
+
 template<typename, typename, typename>
 struct difference_packs_impl;
 
@@ -425,24 +443,41 @@ struct switch_pack<Pack2, Pack1<Args...>> {
 	using type = Pack2<Args...>;
 };
 
-template<typename T, typename = void>
+
+template<typename Packed, typename Enable, typename... Ts>
+struct remove_pack;
+
+template<typename Packed, typename... Ts>
+using remove_pack_t = typename remove_pack<Packed, void, Ts...>::type;
+
+template<template <typename...> typename Pack, typename Front, typename... Args, typename... Ts>
+struct remove_pack<Pack<Front, Args...>, std::enable_if_t<contains<Front, Args...>::value>, Ts...> {
+    using type = remove_pack_t<Pack<Args...>, Ts...>;
+};
+
+template<template <typename...> typename Pack, typename Front, typename... Args, typename... Ts>
+struct remove_pack<Pack<Front, Args...>, std::enable_if_t<std::negation_v<contains<Front, Args...>>>, Ts...> {
+    using type = prepend<remove_pack_t<Pack<Args...>, Ts...>, Front>;
+};
+
+template<template <typename...> typename Pack, typename... Ts>
+struct remove_pack<Pack<>, void, Ts...> {
+    using type = Pack<>;
+};
+
+template<typename T>
 struct unique_pack_impl;
 
 template<typename T>
-using unique_pack_t = typename unique_pack_impl<T, void>::type;
+using unique_pack_t = typename unique_pack_impl<T>::type;
 
 template<template<typename...> typename Pack, typename T, typename... Args>
-struct unique_pack_impl<Pack<Args..., T>, std::enable_if_t<std::negation_v<contains<T, Args...>>>> {
-	using type = append_t<unique_pack_t<Pack<Args...>>, T>;
-};
-
-template<template<typename...> typename Pack, typename T, typename... Args>
-struct unique_pack_impl<Pack<Args..., T>, std::enable_if_t<contains<T, Args...>::value>> {
-	using type = typename unique_pack_impl<Pack<Args...>, void>::type;
+struct unique_pack_impl<Pack<T, Args...>> {
+	using type = prepend_t<unique_pack_t<remove_pack_t<Pack<Args...>, T>>, T>;
 };
 
 template<template<typename...> typename Pack>
-struct unique_pack_impl<Pack<>, void> {
+struct unique_pack_impl<Pack<>> {
 	using type = Pack<>;
 };
 
@@ -730,12 +765,12 @@ public:
 
 	template<typename U>
 	bool isCastable()  noexcept {
-		return val->poly_cast<U>();
+		return val->template poly_cast<U>();
 	}
 
 	template<typename U>
 	friend U* poly_cast(polyValue<T> poly)  noexcept {
-		return poly.val->poly_cast<U>();
+		return poly.val->template poly_cast<U>();
 	}
 
 	T* operator->()  noexcept {
