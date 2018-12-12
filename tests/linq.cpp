@@ -1,3 +1,4 @@
+#include <iostream>
 #include <memory>
 
 #include "gtest/gtest.h"
@@ -5,6 +6,11 @@
 #include "../linq.h"
 
 using namespace linq;
+
+#define GTEST_COUT std::cerr << "[          ] [ INFO ]"
+#define GTEST_WARN std::cerr << "[          ] [ WARNING ]"
+
+int testCount = 0;
 
 struct A {
 	virtual int test() const = 0;
@@ -89,10 +95,13 @@ TEST_F(LinqTest, TestConstLooping) {
 }
 
 TEST_F(LinqTest, TestCount){
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
     // CodeReview: Implement
+
 }
 
 TEST_F(LinqTest, TestSize){
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
     // CodeReview: Implement
 }
 
@@ -140,10 +149,12 @@ TEST_F(LinqTest, TestConstIndexing) {
 }
 
 TEST_F(LinqTest, TestAtOrDefaultIn) {
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
     // CodeReview: Implement
 }
 
 TEST_F(LinqTest, TestAtOrDefaultNotIn) {
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
     // CodeReview: Implement
 }
 
@@ -191,34 +202,42 @@ TEST_F(LinqTest, TestConstFront) {
 
 TEST_F(LinqTest, TestLast) {
     /* EXPECT_EQ(&as_linqed.last(), &as.back()); */
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestBack) {
     /* EXPECT_EQ(&as_linqed.back(), &as.back()); */
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstLast) {
     /* EXPECT_EQ(&as_const_linqed.last(), &as.back()); */
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstBack) {
     /* EXPECT_EQ(&as_const_linqed.back(), &as.back()); */
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestFirstOrDefaultIn) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestFirstOrDefaultEmpty) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestLastOrDefaultIn) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestLastOrDefaultEmpty) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestToContainerSet) {
@@ -253,6 +272,7 @@ TEST_F(LinqTest, TestToVector) {
     /* for(size_t i = 0; i < as.size(); i++) { */
     /*     EXPECT_EQ(vectorVersion[i], as[i]); */
     /* } */
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestFilterEven) {
@@ -301,240 +321,300 @@ TEST_F(LinqTest, TestFilterFalse) {
 
 TEST_F(LinqTest, TestSelect) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstSelect) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestOfTypeSharedPtr) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstOfTypeSharedPtr) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestOfTypePtr) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstOfTypePtr) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestOfTypeRef) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstOfTypeRef) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestAppend) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstAppend) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestPrepend) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstPrepend) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestReverse) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstReverse) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestRemoveFirst) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstRemoveFirst) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestRemoveAllContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstRemoveAllContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestRemoveAllIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstRemoveAllIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConcatContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstConcatContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConcatIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstConcatIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestDistinct) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstDistinct) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestSetUnionContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstSetUnionContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestSetUnionIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstSetUnionIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestOrderByDefault) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstOrderByDefault) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestOrderByFunc) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstOrderByFunc) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestTake) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstTake) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestSkip) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstSkip) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestTakeWhile) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstTakeWhile) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestSkipWhile) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstSkipWhile) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestFlatten) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstFlatten) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestSelectMany) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstSelectMany) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestGroup) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstGroup) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestJoinContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstJoinContainer) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestJoinIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstJoinIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestDefaultZipContainers) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstDefaultZipContainers) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestDefaultZipIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstDefaultZipIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestZipContainers) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstZipContainers) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestZipIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstZipIterators) {
     // CodeReview: Implement
+    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
