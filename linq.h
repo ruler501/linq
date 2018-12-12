@@ -183,6 +183,10 @@ namespace linq {
 			}
 			virtual bool operator==(const base& other) const = 0;
 			virtual base& operator--() = 0;
+            virtual base& operator+=(size_t n) = 0;
+            virtual base& operator-=(size_t n) = 0;
+            virtual iterator_wrapper operator+(size_t n) = 0;
+            virtual iterator_wrapper operator-(size_t n) = 0;
 
 			virtual base* copy() const noexcept = 0;
 			virtual void free() noexcept = 0;
@@ -220,6 +224,50 @@ namespace linq {
 				const data<T>* dataVersion = dynamic_cast<const data<T>*>(&other);
 				return dataVersion && val == dataVersion->val;
 			}
+
+            template<typename U = T, typename Enable = decltype(std::declval<U&>() += (size_t)0)>
+            void plusAssignImpl(size_t n) {
+                this->val += n;
+            }
+
+            template<typename U = T, std::enable_if_t<std::negation_v<HasPlusAssignmentOperator<U>::value>>>
+            bool plusAssignImpl(size_t n) {
+                for(size_t i = 0; i < n; i++) ++this->val;
+                return true;
+            }
+
+            data<T>& operator+=(size_t n) override {
+                this->plusAssignImpl(n);
+                return *this;
+            }
+
+            template<typename U = T, typename Enable = std::enable_if_t<HasMinusAssignmentOperator<U>::value>>
+            void minusAssignImpl(size_t n) {
+                val -= n;
+            }
+
+            template<typename U = T, typename Enable = std::enable_if_t<!HasMinusAssignmentOperator<U>::value>>
+            bool minusAssignImpl(size_t n) {
+                for(size_t i = 0; i < n; i++) --val;
+                return true;
+            }
+
+            iterator_wrapper operator+(size_t n) override {
+                T copy = this->val;
+                copy += n;
+                return iterator_wrapper(copy);
+            }
+            
+            iterator_wrapper operator-(size_t n) override {
+                T copy = this->val;
+                copy -= n;
+                return iterator_wrapper(copy);
+            }
+
+            data<T>& operator-=(size_t n) override {
+                this->minusAssignImpl(n);
+                return *this;
+            }
 
 			data<T>* copy() const noexcept override {
 				return new data<T>(this->val);
@@ -295,6 +343,24 @@ namespace linq {
 			--(*this->val);
 			return *this;
 		}
+
+        iterator_wrapper& operator+=(size_t n) {
+            *this->val += n;
+            return *this;
+        }
+        
+        iterator_wrapper& operator-=(size_t n) {
+            *this->val -= n;
+            return *this;
+        }
+
+        iterator_wrapper operator+(size_t n) {
+            return *this->val + n;
+        }
+        
+        iterator_wrapper operator-(size_t n) {
+            return *this->val - n;
+        }
 
 		bool operator==(const iterator_wrapper& other) const {
 			if (!this->val || !other.val) return this->val == other.val;
@@ -474,25 +540,41 @@ namespace linq {
 			return false;
 		}
 
-		typename iterator::reference first() {
+		reference first() {
 			return *this->begin();
 		}
 
-		typename const_iterator::reference first() const {
+        reference front() {
+            return this->first();
+        }
+
+		const_reference first() const {
 			return *this->begin();
 		}
+
+        const_reference front() const {
+            return this->first();
+        }
+
+		reference last() {
+			return *(this->begin() + (this->count() - 1));
+		}
+
+        reference back() {
+            return this->last();
+        }
+
+		const_reference last() const {
+			return *(this->begin() + (this->count() - 1));
+		}
+
+        const_reference back() const {
+            return this->last();
+        }
 
 		value_type firstOrDefault(const value_type& def) const {
 			if (this->empty()) return def;
 			return this->first();
-		}
-
-		typename iterator::reference last() {
-			return *(this->begin() + (this->count() - 1));
-		}
-
-		typename const_iterator::reference last() const {
-			return *(this->begin() + (this->count() - 1));
 		}
 
 		value_type lastOrDefault(const value_type& def) const {
@@ -504,9 +586,14 @@ namespace linq {
 		Container toContainer() const {
 			return { this->begin(), this->end() };
 		}
+		
+        template<template <typename...> typename Container>
+		Container<value_type> toContainer() const {
+			return { this->begin(), this->end() };
+		}
 
 		std::vector<value_type> toVector() const {
-			return this->toContainer<std::vector<value_type>>;
+			return this->toContainer<std::vector<value_type>>();
 		}
         linq::filter<iterator> filter(std::function<bool(const value_type&)> prop);
 		
@@ -577,34 +664,23 @@ namespace linq {
 			return linq::reverse{ *this };
 		}
 
-		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
-		auto setUnion(Container& other) {
-			return this->concat(other).distinct();
-		}
-
-		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
-		auto setUnion(Container& other) const {
-			return this->concat(other).distinct();
-		}
-
-        // CodeReview: Reenable once flatten is fixed
-		/* template<typename Func> */
-		/* auto selectMany(Func selector) { */
-		/* 	return this->select(selector).flatten(); */
-		/* } */
-
-		/* template<typename Func> */
-		/* auto selectMany(Func selector) const { */
-		/* 	return this->select(selector).flatten(); */
-		/* } */
-
 		auto removeFirst(value_type toRemove) {
+			return linq::removeFirst(*this, toRemove);
+		}
+		
+        auto removeFirst(value_type toRemove) const {
 			return linq::removeFirst(*this, toRemove);
 		}
 
 		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
 		auto removeAll(const Container& container) {
-			auto linqed = linq::id(container);
+			auto linqed = from(container);
+			return linq::filter([&linqed](const value_type& val) { return !linqed.contains(val); });
+		}
+		
+        template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
+		auto removeAll(const Container& container) const {
+			auto linqed = from(container);
 			return linq::filter([&linqed](const value_type& val) { return !linqed.contains(val); });
 		}
 
@@ -635,6 +711,32 @@ namespace linq {
 		auto concat(const_iterator iter1, const_iterator iter2) const {
 			return linq::concat(this->begin(), this->end(), iter1, iter2);
 		}
+
+        auto distinct() {
+            return linq::distinct(*this);
+        }
+        
+        auto distinct() const {
+            return linq::distinct(*this);
+        }
+
+		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
+		auto setUnion(Container& other) {
+			return this->concat(other).distinct();
+		}
+
+		template<typename Container, typename Enable = std::enable_if_t<std::is_same_v<typename std::iterator_traits<iterType<Container>>::value_type, value_type>>>
+		auto setUnion(Container& other) const {
+			return this->concat(other).distinct();
+		}
+
+        auto setUnion(iterator iter1, iterator iter2) {
+            return this->concat(iter1, iter2).distinct();
+        }
+
+        auto setUnion(const_iterator iter1, const_iterator iter2) const {
+            return this->concat(iter1, iter2).distinct();
+        }
 
 		auto orderBy() {
 			return linq::orderBy(*this);
@@ -745,6 +847,16 @@ namespace linq {
 		/* 	} */
 		/* } */
 
+		/* template<typename Func> */
+		/* auto selectMany(Func selector) { */
+		/* 	return this->select(selector).flatten(); */
+		/* } */
+
+		/* template<typename Func> */
+		/* auto selectMany(Func selector) const { */
+		/* 	return this->select(selector).flatten(); */
+		/* } */
+
 		template<typename GroupBy, typename AccumulateTo>
 		auto group(std::function<GroupBy(const value_type&)> keyFunc, std::function<AccumulateTo(const value_type&)> accumulateFunc) {
 			return linq::group(*this, keyFunc, accumulateFunc);
@@ -783,6 +895,26 @@ namespace linq {
 			return linq::join(this->begin(), this->end(), beginning, ending, keyFunc1, keyFunc2, combineFunc);
 		}
 
+        template<typename Container>
+        auto zip(Conter& container) {
+            return zip(*this, container);
+        }
+        
+        template<typename Container>
+        auto zip(const Conter& container) const {
+            return zip(*this, container);
+        }
+
+		template<typename Iter2>
+		auto zip(Iter2 beginning, Iter2 ending) {
+			return zip(this->begin(), this->end(), beginning, ending);
+		}
+		
+        template<typename Iter2>
+		auto zip(Iter2 beginning, Iter2 ending) const {
+			return zip(this->begin(), this->end(), beginning, ending);
+		}
+
 		template<typename Container, typename Func>
 		auto zip(Container& container, Func combineFunc) {
 			return zip(*this, container, combineFunc);
@@ -795,6 +927,11 @@ namespace linq {
 
 		template<typename Iter2, typename Func>
 		auto zip(Iter2 beginning, Iter2 ending, Func combineFunc) {
+			return zip(this->begin(), this->end(), beginning, ending, combineFunc);
+		}
+		
+        template<typename Iter2, typename Func>
+		auto zip(Iter2 beginning, Iter2 ending, Func combineFunc) const {
 			return zip(this->begin(), this->end(), beginning, ending, combineFunc);
 		}
 	};
@@ -1791,7 +1928,7 @@ namespace linq {
 		template<typename Container1, typename Container2, typename U = CombineTo, typename Enable = std::enable_if_t<std::conjunction_v<
 			std::is_same<iterType<Container1>, Iter1>,
 			std::is_same<iterType<Container2>, Iter2>>>,
-			typename Enable2 = decltype(U{ std::declval<const value_type1&>(), std::declval<const value_type2&>() }) >
+			typename Enable2 = decltype(U{ std::declval<const value_type1&>(), std::declval<const value_type2&>() })>
 			zip(Container1& container1, Container2& container2)
 			: abstract_linq<zip_iterator<Iter1, Iter2, CombineTo>, zip_iterator<Iter1, Iter2, CombineTo>, Iter1, Iter2,
 			std::function<CombineTo(const value_type1&, const value_type2&)>>(container1.begin(),

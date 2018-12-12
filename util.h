@@ -229,6 +229,24 @@ struct HasParentOfForm<T, A, std::conditional<false, ParentOfForm<T, A>, void>> 
 template<typename T, template<typename...> typename A>
 constexpr bool HasParentOfForm_v = HasParentOfForm<T, A, void>::value;
 
+namespace detail {
+    template<typename T>
+    auto hasPlusAssignmentOperator(int) -> decltype(std::declval<T&>() += (size_t)0, void(), std::true_type{});
+    template<typename T>
+    std::false_type hasPlusAssignmentOperator(...);
+    
+    template<typename T>
+    auto hasMinusAssignmentOperator(int) -> decltype(std::declval<T&>() -= (size_t)0, void(), std::true_type{});
+    template<typename T>
+    std::false_type hasMinusAssignmentOperator(...);
+}
+
+template<typename T>
+using HasPlusAssignmentOperator = decltype(detail::hasPlusAssignmentOperator<T>(0));
+
+template<typename T>
+using HasMinusAssignmentOperator = decltype(detail::hasMinusAssignmentOperator<T>(0));
+
 template<int N, typename... Ts> using NthTypeOf =
 typename std::tuple_element<N, std::tuple<Ts...>>::type;
 

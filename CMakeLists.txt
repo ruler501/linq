@@ -7,9 +7,6 @@ include(GoogleTest)
 
 project (LinqTest)
 
-set(CMAKE_MODULE_PATH /Users/devon/TProj/linq)
-include(CodeCoverage)
-
 # Download and unpack googletest at configure time
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -48,6 +45,8 @@ set_property (TARGET LinqTest
 if(MSVC)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
 else(MSVC)
+    set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/tests")
+    include(CodeCoverage)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic ${CMAKE_CXX_FLAGS_COVERAGE}")
     SETUP_TARGET_FOR_COVERAGE(LinqCoverage LinqTest coverage)
 endif(MSVC)
