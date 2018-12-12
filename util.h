@@ -77,6 +77,16 @@ std::shared_ptr<T> getBaseClassPtr(const Variant& variant) {
 	return std::visit(visitor, variant);
 }
 
+namespace detail {
+    template<typename U>
+    std::true_type implicitlyConvert(U u);
+    template<typename U>
+    std::false_type implicitlyConvert(...);
+}
+
+template<typename T, typename U>
+using ImplicitlyConvertible = decltype(detail::implicitlyConvert<U>(std::declval<T>()));
+
 template<typename State, typename Variant, typename Enable>
 struct index_of_impl;
 

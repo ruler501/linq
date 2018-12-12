@@ -255,7 +255,7 @@ namespace linq {
             iterator_wrapper operator+(size_t n) override {
                 T copy = this->val;
                 copy += n;
-                return iterator_wrapper(copy);
+                return { copy };
             }
             
             iterator_wrapper operator-(size_t n) override {
@@ -296,8 +296,12 @@ namespace linq {
 		};
 
 	public:
-		template<typename U, typename Enable = std::enable_if_t<std::conjunction_v<std::is_same<typename std::iterator_traits<std::decay_t<U>>::iterator_category, iterator_category>, std::is_same<typename std::iterator_traits<std::decay_t<U>>::difference_type, difference_type>, std::is_same<typename std::iterator_traits<std::decay_t<U>>::pointer, pointer>, std::is_same<typename std::iterator_traits<std::decay_t<U>>::reference, reference>>>,
-            typename Enable3 = std::enable_if_t<std::negation_v<std::is_same<std::decay_t<U>, iterator_wrapper>>>>
+		template<typename U, typename Enable = std::enable_if_t<std::conjunction_v<
+                ImplicitlyConvertible<typename std::iterator_traits<std::decay_t<U>>::iterator_category, iterator_category>,
+                ImplicitlyConvertible<typename std::iterator_traits<std::decay_t<U>>::difference_type, difference_type>,
+                ImplicitlyConvertible<typename std::iterator_traits<std::decay_t<U>>::pointer, pointer>,
+                ImplicitlyConvertible<typename std::iterator_traits<std::decay_t<U>>::reference, reference>,
+                std::negation<std::is_same<std::decay_t<U>, iterator_wrapper>>>>>
 		iterator_wrapper(U&& val)
 			: val(new data<std::decay_t<U>>(std::forward<U>(val)))
 		{}
@@ -311,6 +315,10 @@ namespace linq {
 		{
 			other.val = nullptr;
 		}
+
+        iterator_wrapper()
+            : val(new data<value_type*>(nullptr))
+        {}
 
 		iterator_wrapper& operator=(const iterator_wrapper& other) {
 			if (this->val) this->val->free();
@@ -400,7 +408,7 @@ namespace linq {
 		BackingIter beginning;
 		BackingIter ending;
 		std::tuple<Args...> args;
-		const decltype(std::index_sequence_for<Args...>()) indices = std::index_sequence_for<Args...>();
+		decltype(std::index_sequence_for<Args...>()) indices = std::index_sequence_for<Args...>();
 
 		template<size_t... Is>
 		iterator begin(const std::index_sequence<Is...>&) {
@@ -497,23 +505,23 @@ namespace linq {
 			return start;
 		}
 
-		value_type& at(size_t index) {
+		reference at(size_t index) {
 			iterator begin = this->begin();
 			std::advance(begin, index);
 			return *begin;
 		}
 
-		const value_type& at(size_t index) const {
+		consted_t<reference> at(size_t index) const {
 			const_iterator begin = this->begin();
 			std::advance(begin, index);
 			return *begin;
 		}
 
-		value_type& operator[](size_t index) {
+		reference operator[](size_t index) {
 			return this->at(index);
 		}
 
-		const value_type& operator[](size_t index) const {
+		consted_t<reference> operator[](size_t index) const {
 			return this->at(index);
 		}
 
@@ -896,12 +904,12 @@ namespace linq {
 		}
 
         template<typename Container>
-        auto zip(Conter& container) {
+        auto zip(Container& container) {
             return zip(*this, container);
         }
         
         template<typename Container>
-        auto zip(const Conter& container) const {
+        auto zip(const Container& container) const {
             return zip(*this, container);
         }
 
@@ -1065,6 +1073,10 @@ namespace linq {
 		id(const Container& backing)
 			: abstract_linq<id_iterator<Iter>, id_iterator<Iter, true>, Iter>(backing.cbegin(), backing.cend())
 		{}
+
+        id()
+            : abstract_linq<id_iterator<Iter>, id_iterator<Iter, true>, Iter>(Iter{}, Iter{})
+        {}
 	};
 
 	template<typename Iter>

@@ -22,8 +22,14 @@ namespace {
 	class LinqTest : public ::testing::Test {
 	protected:
 		std::vector<std::shared_ptr<A>> as;
+        decltype(from(std::declval<std::vector<std::shared_ptr<A>>&>())) as_linqed;
+        decltype(from(std::declval<const std::vector<std::shared_ptr<A>>&>())) as_const_linqed;
         std::vector<std::pair<int, int>> pairsDoubled;
+        decltype(from(std::declval<std::vector<std::pair<int, int>>&>())) pairsDoubled_linqed;
+        decltype(from(std::declval<const std::vector<std::pair<int,int>>&>())) pairsDoubled_const_linqed;
         std::vector<std::pair<int, int>> pairsSquared;
+        decltype(from(std::declval<std::vector<std::pair<int, int>>&>())) pairsSquared_linqed;
+        decltype(from(std::declval<const std::vector<std::pair<int,int>>&>())) pairsSquared_const_linqed;
 
 		LinqTest() {
 			as.push_back(std::make_shared<B<0>>());
@@ -44,41 +50,42 @@ namespace {
                 pairsDoubled.push_back({i, i*2});
                 pairsSquared.push_back({i, i*i});
             }
+
+            as_linqed = from(this->as);
+            as_const_linqed = from(((const LinqTest*)this)->as);
+            pairsDoubled_linqed = from(this->pairsDoubled);
+            pairsDoubled_const_linqed = from(((const LinqTest*)this)->pairsDoubled);
+            pairsSquared_linqed = from(this->pairsSquared);
+            pairsSquared_const_linqed = from(((const LinqTest*)this)->pairsSquared);
 		}
 	};
 }
 
 TEST_F(LinqTest, TestFrom) {
-    auto linqed = from(as);
-
-    auto current = linqed.begin();
+    auto current = as_linqed.begin();
     for(size_t i=0; i < as.size(); i++) {
         EXPECT_EQ(*current, as[i]);
         ++current;
     }
-    EXPECT_EQ(current, linqed.end());
+    EXPECT_EQ(current, as_linqed.end());
 }
 
 TEST_F(LinqTest, TestLooping) {
-    auto linqed = from(as);
-
     int count = 0;
-    for(std::shared_ptr<A>& a : linqed) {
-        EXPECT_EQ(a->test(), count);
+    for(std::shared_ptr<A>& a : as_linqed) {
+        EXPECT_EQ(a->test(), as[count]->test());
         count++;
     }
-    EXPECT_EQ(count, 13);
+    EXPECT_EQ(count, as.size());
 }
 
 TEST_F(LinqTest, TestConstLooping) {
-    const auto linqed = from(as);
-
     int count = 0;
-    for(const std::shared_ptr<A>& a : linqed) {
-        EXPECT_EQ(a->test(), count);
+    for(const std::shared_ptr<A>& a : as_linqed) {
+        EXPECT_EQ(a->test(), as[count]->test());
         count++;
     }
-    EXPECT_EQ(count, 13);
+    EXPECT_EQ(count, as.size());
 }
 
 TEST_F(LinqTest, TestCount){
@@ -90,54 +97,46 @@ TEST_F(LinqTest, TestSize){
 }
 
 TEST_F(LinqTest, TestContains) {
-    auto linqed = from(as);
-    EXPECT_TRUE(linqed.contains(as[7]));
+    EXPECT_TRUE(as_linqed.contains(as[7]));
 }
 
 TEST_F(LinqTest, TestForEach) {
-    auto linqed = from(as);
     int count = 0;
-    linqed.forEach([&count](std::shared_ptr<A>& a) -> void{ count += a->test(); });
+    as_linqed.forEach([&count](std::shared_ptr<A>& a) -> void{ count += a->test(); });
     EXPECT_EQ(count, 78);
 }
 
 TEST_F(LinqTest, TestConstForEach) {
-    const auto linqed = from(as);
     int count = 0;
-    linqed.forEach([&count](const std::shared_ptr<A>& a) -> void{ count += a->test(); });
+    as_linqed.forEach([&count](const std::shared_ptr<A>& a) -> void{ count += a->test(); });
     EXPECT_EQ(count, 78);
 }
 
 TEST_F(LinqTest, TestAggregate) {
-    const auto linqed = from(as);
-    int count = linqed.aggregate([](int count, const std::shared_ptr<A>& a) -> int { return count + a->test(); });
+    int count = as_const_linqed.aggregate([](int count, const std::shared_ptr<A>& a) -> int { return count + a->test(); });
     EXPECT_EQ(count, 78);
 }
 
 TEST_F(LinqTest, TestAggregateStartingValue) {
-    const auto linqed = from(as);
-    int count = linqed.aggregate(22, [](int count, const std::shared_ptr<A>& a) -> int { return count + a->test(); });
+    int count = as_const_linqed.aggregate(22, [](int count, const std::shared_ptr<A>& a) -> int { return count + a->test(); });
     EXPECT_EQ(count, 100);
 }
 
 TEST_F(LinqTest, TestAt) {
-    auto linqed = from(as);
-    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(linqed.at(i)->test(), i);
+    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(as_linqed.at(i)->test(), i);
 }
 
 TEST_F(LinqTest, TestConstAt) {
-    const auto linqed = from(as);
-    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(linqed.at(i)->test(), i);
+    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(as_const_linqed.at(i)->test(), i);
 }
 
 TEST_F(LinqTest, TestIndexing) {
-    auto linqed = from(as);
-    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(linqed[i]->test(), i);
+    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(as_linqed[i]->test(), i);
 }
 
 TEST_F(LinqTest, TestConstIndexing) {
     const auto linqed = from(as);
-    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(linqed[i]->test(), i);
+    for(size_t i=0; i < as.size(); i++) EXPECT_EQ(as_const_linqed[i]->test(), i);
 }
 
 TEST_F(LinqTest, TestAtOrDefaultIn) {
@@ -149,74 +148,61 @@ TEST_F(LinqTest, TestAtOrDefaultNotIn) {
 }
 
 TEST_F(LinqTest, TestEmptyFalse) {
-    auto linqed = from(as);
-    EXPECT_FALSE(linqed.empty());
+    EXPECT_FALSE(as_const_linqed.empty());
 }
 
 TEST_F(LinqTest, TestEmptyTrue) {
     std::vector<int> temp;
-    auto linqed = from(temp);
+    const auto linqed = from(temp);
     EXPECT_TRUE(linqed.empty());
 }
 
 TEST_F(LinqTest, TestAllTrue) {
-    auto linqed = from(as);
-    EXPECT_TRUE(linqed.all([](const std::shared_ptr<A>& a) { return a->test() >= 0; }));
+    EXPECT_TRUE(as_const_linqed.all([](const std::shared_ptr<A>& a) { return a->test() >= 0; }));
 }
 
 TEST_F(LinqTest, TestAllFalse) {
-    auto linqed = from(as);
-    EXPECT_FALSE(linqed.all([](const std::shared_ptr<A>& a) { return a->test() < 10; }));
+    EXPECT_FALSE(as_const_linqed.all([](const std::shared_ptr<A>& a) { return a->test() < 10; }));
 }
 
 TEST_F(LinqTest, TestAnyTrue) {
-    auto linqed = from(as);
-    EXPECT_TRUE(linqed.any([](const std::shared_ptr<A>& a) { return a->test() == 10; }));
+    EXPECT_TRUE(as_const_linqed.any([](const std::shared_ptr<A>& a) { return a->test() == 10; }));
 }
 
 TEST_F(LinqTest, TestAnyFalse) {
-    auto linqed = from(as);
-    EXPECT_FALSE(linqed.any([](const std::shared_ptr<A>& a) { return a->test() < 0; }));
+    EXPECT_FALSE(as_const_linqed.any([](const std::shared_ptr<A>& a) { return a->test() < 0; }));
 }
 
 TEST_F(LinqTest, TestFirst) {
-    auto linqed = from(as);
-    EXPECT_EQ(&linqed.first(), &as.front());
+    EXPECT_EQ(&as_linqed.first(), &as.front());
 }
 
 TEST_F(LinqTest, TestFront) {
-    auto linqed = from(as);
-    EXPECT_EQ(&linqed.front(), &as.front());
+    EXPECT_EQ(&as_linqed.front(), &as.front());
 }
 
 TEST_F(LinqTest, TestConstFirst) {
-    const auto linqed = from(as);
-    EXPECT_EQ(&linqed.first(), &as.front());
+    EXPECT_EQ(&as_const_linqed.first(), &as.front());
 }
 
 TEST_F(LinqTest, TestConstFront) {
-    const auto linqed = from(as);
-    EXPECT_EQ(&linqed.front(), &as.front());
+    EXPECT_EQ(&as_const_linqed.front(), &as.front());
 }
 
 TEST_F(LinqTest, TestLast) {
-    /* auto linqed = from(as); */
-    /* EXPECT_EQ(&linqed.last(), &as.back()); */
+    /* EXPECT_EQ(&as_linqed.last(), &as.back()); */
 }
 
 TEST_F(LinqTest, TestBack) {
-    /* auto linqed = from(as); */
-    /* EXPECT_EQ(&linqed.back(), &as.back()); */
+    /* EXPECT_EQ(&as_linqed.back(), &as.back()); */
 }
 
 TEST_F(LinqTest, TestConstLast) {
-    /* const auto linqed = from(as); */
-    /* EXPECT_EQ(&linqed.last(), &as.back()); */
+    /* EXPECT_EQ(&as_const_linqed.last(), &as.back()); */
 }
 
 TEST_F(LinqTest, TestConstBack) {
-    /* const auto linqed = from(as); */
-    /* EXPECT_EQ(&linqed.back(), &as.back()); */
+    /* EXPECT_EQ(&as_const_linqed.back(), &as.back()); */
 }
 
 TEST_F(LinqTest, TestFirstOrDefaultIn) {
@@ -236,18 +222,16 @@ TEST_F(LinqTest, TestLastOrDefaultEmpty) {
 }
 
 TEST_F(LinqTest, TestToContainerSet) {
-    const auto linqed = from(as);
-    std::set<std::shared_ptr<A>> setVersion = linqed.toContainer<std::set<std::shared_ptr<A>>>();
-    for(const std::shared_ptr<A>& a : linqed) {
+    std::set<std::shared_ptr<A>> setVersion = as_const_linqed.toContainer<std::set<std::shared_ptr<A>>>();
+    for(const std::shared_ptr<A>& a : as_linqed) {
         EXPECT_NE(setVersion.find(a), setVersion.end());
     }
     EXPECT_EQ(setVersion.size(), as.size());
 }
 
 TEST_F(LinqTest, TestToContainerMap) {
-    const auto linqed = from(pairsDoubled);
-    std::map<int, int> mapVersion = linqed.toContainer<std::map<int, int>>();
-    for(const std::pair<int, int>& pair : linqed) {
+    std::map<int, int> mapVersion = pairsDoubled_const_linqed.toContainer<std::map<int, int>>();
+    for(const std::pair<int, int>& pair : pairsDoubled_const_linqed) {
         ASSERT_NE(mapVersion.find(pair.first), mapVersion.end());
         EXPECT_EQ(mapVersion.at(pair.first), pair.second);
     }
@@ -255,9 +239,8 @@ TEST_F(LinqTest, TestToContainerMap) {
 }
 
 TEST_F(LinqTest, TestToContainerGeneric) {
-    const auto linqed = from(as);
-    std::set<std::shared_ptr<A>> setVersion = linqed.toContainer<std::set>();
-    for(const std::shared_ptr<A>& a : linqed) {
+    std::set<std::shared_ptr<A>> setVersion = as_const_linqed.toContainer<std::set>();
+    for(const std::shared_ptr<A>& a : as_const_linqed) {
         EXPECT_NE(setVersion.find(a), setVersion.end());
     }
     EXPECT_EQ(setVersion.size(), as.size());
@@ -265,8 +248,7 @@ TEST_F(LinqTest, TestToContainerGeneric) {
 
 TEST_F(LinqTest, TestToVector) {
     // CodeReveiw need operator-(iterator_wrapper other)
-    /* const auto linqed = from(as); */
-    /* std::vector<std::shared_ptr<A>> vectorVersion = linqed.toVector(); */
+    /* std::vector<std::shared_ptr<A>> vectorVersion = as_linqed.toVector(); */
     /* ASSERT_EQ(vectorVersion.size(), as.size()); */
     /* for(size_t i = 0; i < as.size(); i++) { */
     /*     EXPECT_EQ(vectorVersion[i], as[i]); */
@@ -274,7 +256,7 @@ TEST_F(LinqTest, TestToVector) {
 }
 
 TEST_F(LinqTest, TestFilterEven) {
-    auto filtered = from(as).filter([](const std::shared_ptr<A>& a) { return a->test() % 2 == 0; });
+    auto filtered = as_linqed.filter([](const std::shared_ptr<A>& a) { return a->test() % 2 == 0; });
     // EXPECT_EQ(filtered.count(), 7);
     size_t count = 0;
     for (const std::shared_ptr<A>& a : filtered) {
@@ -285,7 +267,7 @@ TEST_F(LinqTest, TestFilterEven) {
 }
 
 TEST_F(LinqTest, TestFilterOdd) {
-    auto filtered = from(as).filter([](const std::shared_ptr<A>& a) { return a->test() % 2 == 1; });
+    auto filtered = as_linqed.filter([](const std::shared_ptr<A>& a) { return a->test() % 2 == 1; });
     // EXPECT_EQ(filtered.count(), 7);
     size_t count = 0;
     for (const std::shared_ptr<A>& a : filtered) {
@@ -296,7 +278,7 @@ TEST_F(LinqTest, TestFilterOdd) {
 }
 
 TEST_F(LinqTest, TestFilterOddConst) {
-    const auto filtered = from(as).filter([](const std::shared_ptr<A>& a) { return a->test() % 2 == 1; });
+    const auto filtered = as_linqed.filter([](const std::shared_ptr<A>& a) { return a->test() % 2 == 1; });
     // EXPECT_EQ(filtered.count(), 7);
     size_t count = 0;
     for (const std::shared_ptr<A>& a : filtered) {
@@ -307,7 +289,7 @@ TEST_F(LinqTest, TestFilterOddConst) {
 }
 
 TEST_F(LinqTest, TestFilterFalse) {
-    auto filtered = from(as).filter([](const std::shared_ptr<A>&) { return false; });
+    auto filtered = as_linqed.filter([](const std::shared_ptr<A>&) { return false; });
     // EXPECT_EQ(filtered.count(), 7);
     size_t count = 0;
     for (const std::shared_ptr<A>& _ : filtered) {
