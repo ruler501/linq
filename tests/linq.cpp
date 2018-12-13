@@ -30,6 +30,9 @@ namespace {
 		std::vector<std::shared_ptr<A>> as;
         decltype(from(std::declval<std::vector<std::shared_ptr<A>>&>())) as_linqed;
         decltype(from(std::declval<const std::vector<std::shared_ptr<A>>&>())) as_const_linqed;
+        std::vector<A*> asPtr;
+        decltype(from(std::declval<std::vector<A*>&>())) asPtr_linqed;
+        decltype(from(std::declval<const std::vector<A*>&>())) asPtr_const_linqed;
         std::vector<std::pair<int, int>> pairsDoubled;
         decltype(from(std::declval<std::vector<std::pair<int, int>>&>())) pairsDoubled_linqed;
         decltype(from(std::declval<const std::vector<std::pair<int,int>>&>())) pairsDoubled_const_linqed;
@@ -52,6 +55,10 @@ namespace {
 			as.push_back(std::make_shared<B<11>>());
 			as.push_back(std::make_shared<B<12>>());
 
+            for(const std::shared_ptr<A> a : as) {
+                asPtr.push_back(a.get());
+            }
+
             for(int i=0; i < 13; i++) {
                 pairsDoubled.push_back({i, i*2});
                 pairsSquared.push_back({i, i*i});
@@ -59,6 +66,8 @@ namespace {
 
             as_linqed = from(this->as);
             as_const_linqed = from(((const LinqTest*)this)->as);
+            asPtr_linqed = from(this->asPtr);
+            asPtr_const_linqed = from(((const LinqTest*)this)->asPtr);
             pairsDoubled_linqed = from(this->pairsDoubled);
             pairsDoubled_const_linqed = from(((const LinqTest*)this)->pairsDoubled);
             pairsSquared_linqed = from(this->pairsSquared);
@@ -320,103 +329,214 @@ TEST_F(LinqTest, TestFilterFalse) {
 }
 
 TEST_F(LinqTest, TestSelect) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    auto selected = as_linqed.select([](const std::shared_ptr<A>& a) { return a->test(); });
+    int count = 0;
+    for(const int& a : selected) {
+        EXPECT_EQ(a, count);
+        ++count;
+    }
+    EXPECT_EQ(count, as.size());
 }
 
 TEST_F(LinqTest, TestConstSelect) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    const auto selected = as_linqed.select([](const std::shared_ptr<A>& a) { return a->test(); });
+    int count = 0;
+    for(const int& a : selected) {
+        EXPECT_EQ(a, count);
+        ++count;
+    }
+    EXPECT_EQ(count, as.size());
 }
 
 TEST_F(LinqTest, TestOfTypeSharedPtr) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    auto typed = as_linqed.ofType<B<10>>();
+    int count = 0;
+    for(const std::shared_ptr<B<10>>& b : typed) {
+        EXPECT_EQ(b->test(), 10);
+        count++;
+    }
+    EXPECT_EQ(count, 1);
 }
 
 TEST_F(LinqTest, TestConstOfTypeSharedPtr) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    const auto typed = as_linqed.ofType<B<10>>();
+    int count = 0;
+    for(const std::shared_ptr<B<10>>& b : typed) {
+        EXPECT_EQ(b->test(), 10);
+        count++;
+    }
+    EXPECT_EQ(count, 1);
 }
 
+template<typename T>
+using Ptr = T*;
+
 TEST_F(LinqTest, TestOfTypePtr) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    auto typed = asPtr_linqed.ofType<B<10>, Ptr>();
+    int count = 0;
+    for(const B<10>* b : typed) {
+        EXPECT_EQ(b->test(), 10);
+        count++;
+    }
+    EXPECT_EQ(count, 1);
 }
 
 TEST_F(LinqTest, TestConstOfTypePtr) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
-}
-
-TEST_F(LinqTest, TestOfTypeRef) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
-}
-
-TEST_F(LinqTest, TestConstOfTypeRef) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    const auto typed = asPtr_linqed.ofType<B<10>, Ptr>();
+    int count = 0;
+    for(const B<10>* b : typed) {
+        EXPECT_EQ(b->test(), 10);
+        count++;
+    }
+    EXPECT_EQ(count, 1);
 }
 
 TEST_F(LinqTest, TestAppend) {
+    std::shared_ptr<A> b13 = std::make_shared<B<13>>();
+    auto appended = as_linqed.append(b13);
+    // Rough Idea: Assert that for each index within size of as it equals as then assert last is equal to the B<13>
     // CodeReview: Implement
     GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestConstAppend) {
+    std::shared_ptr<A> b13 = std::make_shared<B<13>>();
+    auto appended = as_linqed.append(b13);
+    // Rough Idea: Assert that for each index within size of as it equals as then assert last is equal to the B<13>
     // CodeReview: Implement
     GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
 }
 
 TEST_F(LinqTest, TestPrepend) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    std::shared_ptr<A> bn1 = std::make_shared<B<-1>>();
+    auto prepended = as_linqed.prepend(bn1);
+    EXPECT_EQ(prepended.first(), bn1);
+    for(size_t i=0; i < as.size(); i++) {
+        EXPECT_EQ(prepended[i+1], as[i]);
+    }
 }
 
 TEST_F(LinqTest, TestConstPrepend) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    std::shared_ptr<A> bn1 = std::make_shared<B<-1>>();
+    const auto prepended = as_linqed.prepend(bn1);
+    EXPECT_EQ(prepended.first(), bn1);
+    for(size_t i=0; i < as.size(); i++) {
+        EXPECT_EQ(prepended[i+1], as[i]);
+    }
 }
 
 TEST_F(LinqTest, TestReverse) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    auto reversed = as_linqed.reverse();
+    std::vector<std::shared_ptr<A>> asReversed{as.rbegin(), as.rend()};
+    for(size_t i=0; i < asReversed.size(); i++) {
+        EXPECT_EQ(reversed[i], asReversed[i]);
+    }
+    // CodeReview: Assert lengths are equal
 }
 
 TEST_F(LinqTest, TestConstReverse) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    const auto reversed = as_linqed.reverse();
+    std::vector<std::shared_ptr<A>> asReversed{as.rbegin(), as.rend()};
+    for(size_t i=0; i < asReversed.size(); i++) {
+        EXPECT_EQ(reversed[i], asReversed[i]);
+    }
+    // CodeReview: Assert lengths are equal
 }
 
-TEST_F(LinqTest, TestRemoveFirst) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+TEST_F(LinqTest, TestRemoveFirstExisting) {
+    std::shared_ptr<A> toRemove = as[7];
+    auto removed = as_linqed.removeFirst(toRemove);
+    size_t j = 0;
+    for(size_t i = 0; i < as.size(); i++) {
+        if(i != 7) {
+            EXPECT_EQ(removed[j], as[i]);
+            ++j;
+        }
+    }
+    // CodeReview: Assert lengths are equal - 1
 }
 
-TEST_F(LinqTest, TestConstRemoveFirst) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+TEST_F(LinqTest, TestConstRemoveFirstExisting) {
+    std::shared_ptr<A> toRemove = as[7];
+    const auto removed = as_linqed.removeFirst(toRemove);
+    size_t j = 0;
+    for(size_t i = 0; i < as.size(); i++) {
+        if(i != 7) {
+            EXPECT_EQ(removed[j], as[i]);
+            ++j;
+        }
+    }
+    // CodeReview: Assert lengths are equal - 1
+}
+
+TEST_F(LinqTest, TestRemoveFirstNonExisting) {
+    std::shared_ptr<A> toRemove;
+    const auto removed = as_linqed.removeFirst(toRemove);
+    for(size_t i = 0; i < as.size(); i++) {
+        EXPECT_EQ(removed[i], as[i]);
+    }
+    // CodeReview: Assert lengths are equal
+}
+
+TEST_F(LinqTest, TestConstRemoveFirstNonExisting) {
+    std::shared_ptr<A> toRemove;
+    const auto removed = as_linqed.removeFirst(toRemove);
+    for(size_t i = 0; i < as.size(); i++) {
+        EXPECT_EQ(removed[i], as[i]);
+    }
+    // CodeReview: Assert lengths are equal
 }
 
 TEST_F(LinqTest, TestRemoveAllContainer) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    std::vector<std::shared_ptr<A>> toRemove{ as.begin() + 3, as.begin() + 7 };
+    auto removed = as_linqed.removeAll(toRemove);
+    size_t j = 0;
+    for(size_t i = 0; i < as.size(); i++) {
+        if(i < 3 || i >= 7) {
+            EXPECT_EQ(removed[j], as[i]);
+            ++j;
+        }
+    }
+    // CodeReview: Assert lengths are equal - size(toRemove)
 }
 
 TEST_F(LinqTest, TestConstRemoveAllContainer) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    std::vector<std::shared_ptr<A>> toRemove{ as.begin() + 3, as.begin() + 7 };
+    const auto removed = as_linqed.removeAll(toRemove);
+    size_t j = 0;
+    for(size_t i = 0; i < as.size(); i++) {
+        if(i < 3 || i >= 7) {
+            EXPECT_EQ(removed[j]->test(), as[i]->test());
+            ++j;
+        }
+    }
+    // CodeReview: Assert lengths are equal - size(toRemove)
 }
 
 TEST_F(LinqTest, TestRemoveAllIterators) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    std::vector<std::shared_ptr<A>> toRemove{ as.begin() + 3, as.begin() + 7 };
+    auto removed = as_linqed.removeAll(toRemove.begin(), toRemove.end());
+    size_t j = 0;
+    for(size_t i = 0; i < as.size(); i++) {
+        if(i < 3 || i >= 7) {
+            EXPECT_EQ(removed[j], as[i]);
+            ++j;
+        }
+    }
+    // CodeReview: Assert lengths are equal - size(toRemove)
 }
 
 TEST_F(LinqTest, TestConstRemoveAllIterators) {
-    // CodeReview: Implement
-    GTEST_WARN << "Test not implemented. Number " << testCount++ << "\n";
+    std::vector<std::shared_ptr<A>> toRemove{ as.begin() + 3, as.begin() + 7 };
+    const auto removed = as_linqed.removeAll(toRemove.begin(), toRemove.end());
+    size_t j = 0;
+    for(size_t i = 0; i < as.size(); i++) {
+        if(i < 3 || i >= 7) {
+            EXPECT_EQ(removed[j], as[i]);
+            ++j;
+        }
+    }
+    // CodeReview: Assert lengths are equal - size(toRemove)
 }
 
 TEST_F(LinqTest, TestConcatContainer) {
