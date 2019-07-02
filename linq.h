@@ -9,10 +9,23 @@
 #include "util.h"
 
 namespace linq {
+	template<typename Category, typename Value, typename Difference, typename Pointer, typename Reference>
+	class iterator_wrapper;
+
+	template<typename Iter>
+	iterator_wrapper(Iter&&)->iterator_wrapper<typename std::iterator_traits<Iter>::iterator_category,
+		typename std::iterator_traits<Iter>::value_type,
+		typename std::iterator_traits<Iter>::difference_type,
+		typename std::iterator_traits<Iter>::pointer,
+		typename std::iterator_traits<Iter>::reference>;
+
+	template<typename Iter>
+	using wrapperEquivalent = typename DeductionGuideEvaluate<iterator_wrapper, Iter>::type;
+
 	template<typename Container>
-	using iterType = decltype(std::declval<Container>().begin());
+	using iterType = wrapperEquivalent<decltype(std::declval<Container>().begin())>;
 	template<typename Container>
-	using constIterType = decltype(std::declval<Container>().cbegin());
+	using constIterType = wrapperEquivalent<decltype(std::declval<Container>().cbegin())>;
 
 	template<typename Iter>
 	class id;
@@ -240,7 +253,7 @@ namespace linq {
 			: val(other.val->copy())
 		{}
 
-		iterator_wrapper(iterator_wrapper&& other)
+		iterator_wrapper(iterator_wrapper&& other) noexcept
 			: val(other.val)
 		{
 			other.val = nullptr;
@@ -292,13 +305,6 @@ namespace linq {
 		}
 	};
 
-	template<typename Iter>
-	iterator_wrapper(Iter&&)->iterator_wrapper<typename std::iterator_traits<Iter>::iterator_category,
-		typename std::iterator_traits<Iter>::value_type,
-		typename std::iterator_traits<Iter>::difference_type,
-		typename std::iterator_traits<Iter>::pointer,
-		typename std::iterator_traits<Iter>::reference>;
-
 	template<typename Iter, typename ConstIter, typename BackingIter, typename... Args>
 	class abstract_linq {
 	protected:
@@ -313,9 +319,10 @@ namespace linq {
 		using const_difference_type = typename std::iterator_traits<ConstIter>::difference_type;
 		using const_pointer = typename std::iterator_traits<ConstIter>::pointer;
 		using const_reference = typename std::iterator_traits<ConstIter>::reference;
+
 	public:
-		using iterator = iterator_wrapper<iterator_category, value_type, difference_type, pointer, reference>;
-		using const_iterator = iterator_wrapper<const_iterator_category, const_value_type, const_difference_type, const_pointer, const_reference>;
+		using iterator = wrapperEquivalent<Iter>;
+		using const_iterator = wrapperEquivalent<ConstIter>;
 		using reverse_iterator = std::reverse_iterator<iterator>;
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -479,6 +486,11 @@ namespace linq {
 		}
 
 		std::vector<value_type> toVector() const {
+			return { this->begin(), this->end() };
+		}
+
+		template<typename Container>
+		Container toContainer() const {
 			return { this->begin(), this->end() };
 		}
 
@@ -805,6 +817,10 @@ namespace linq {
 			using pointer = Pointer;
 			using reference = std::conditional_t<cons, consted_t<Reference>, Reference>;
 
+			virtual reference operator*() = 0;
+
+			virtual consted_t<reference> operator*() const = 0;
+
 			virtual base_iterator& operator++() {
 				++this->current;
 				return *this;
@@ -823,12 +839,16 @@ namespace linq {
 				return *this;
 			}
 
-			// operator++(int)
-			// operator--(int)
-			// operator+
-			// operator-(size_t)
-			// operator[]
-			// operator-(id_iterator&)
+			// operator++(int) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator--(int) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator+(size_t) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator-(size_t) Return type has to be the subtype not a reference so can't use covariance. Maybe return iterator_wrapper
+			// operator[] Could possibly implement with ++ n times then -- n times. Assumes -- works
+			// operator-(base_iterator&) Could possibly be implemented if the below were also implemented
+			// operator<(base_iterator&) Implementation specific, could supply default of current < current
+			// operator>(base_iterator&) Implementation specific, could supply default of current > current
+			// operator<=(base_iterator&) Implementation specific, could supply default of current <= current
+			// operator>=(base_iterator&) Implementation specific, could supply default of current >= current
 
 			base_iterator(Iter current)
 				: current(current)
@@ -841,22 +861,19 @@ namespace linq {
 	template<typename Iter, bool cons = is_const_iterator<Iter>::value>
 	class id_iterator : public base_iterator<Iter, cons> {
 	public:
-		using reference = typename std::iterator_traits<Iter>::reference;
+		using reference = typename base_iterator<Iter, cons>::reference;
 
 		virtual reference operator*() {
-			return *current;
+			return *this->current;
 		}
 
 		virtual consted_t<reference> operator*() const {
-			return *current;
+			return *this->current;
 		}
 
 		id_iterator(Iter current)
 			: base_iterator<Iter, cons>(current)
 		{}
-
-	protected:
-		Iter current;
 	};
 
 	template<typename Iter>
@@ -1087,11 +1104,11 @@ namespace linq {
 	template<typename Iter, typename U>
 	class select_iterator : public base_iterator<Iter, true, std::input_iterator_tag, U, typename std::iterator_traits<Iter>::difference_type, U*, U> {
 	public:
-		U operator*() {
+		consted_t<U> operator*() {
 			return func(*this->current);
 		}
 
-		U operator*() const {
+		consted_t<U> operator*() const {
 			return func(*this->current);
 		}
 
